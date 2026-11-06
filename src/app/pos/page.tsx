@@ -30,10 +30,13 @@ export default function PosPage() {
     order?: OrderData | null;
   }>({ isOpen: false, type: "receipt" });
 
-  // Sync orders from SQLite API
+  // Sync orders from API with cache-busting
   const fetchOrders = async () => {
     try {
-      const res = await fetch("/api/orders");
+      const res = await fetch(`/api/orders?_t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+      });
       const data = await res.json();
       if (Array.isArray(data)) {
         setOrders(data);
@@ -45,8 +48,32 @@ export default function PosPage() {
 
   useEffect(() => {
     fetchOrders();
-    const interval = setInterval(fetchOrders, 8000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchOrders, 2500);
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        bc = new BroadcastChannel("keivo_pos_orders_sync");
+        bc.onmessage = () => {
+          fetchOrders();
+        };
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "keivo_order_sync_trigger") {
+        fetchOrders();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      clearInterval(interval);
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
+    };
   }, []);
 
   // Handlers

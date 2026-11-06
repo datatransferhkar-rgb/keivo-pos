@@ -180,7 +180,10 @@ export function TableMonitorWorkspace({
   const fetchOrders = async (silent = false) => {
     if (!silent) setIsRefreshing(true);
     try {
-      const res = await fetch("/api/orders");
+      const res = await fetch(`/api/orders?_t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+      });
       const data = await res.json();
       if (Array.isArray(data)) {
         const readyOrders = data.filter((o) => o.kitchenStatus === "ready");
@@ -203,8 +206,32 @@ export function TableMonitorWorkspace({
 
   useEffect(() => {
     fetchOrders();
-    const interval = setInterval(() => fetchOrders(true), 3500);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => fetchOrders(true), 2000);
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        bc = new BroadcastChannel("keivo_pos_orders_sync");
+        bc.onmessage = () => {
+          fetchOrders(true);
+        };
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "keivo_order_sync_trigger") {
+        fetchOrders(true);
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      clearInterval(interval);
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
+    };
   }, [soundEnabled]);
 
   // Sync with orders prop if provided

@@ -114,10 +114,13 @@ export default function RestaurantPosApp() {
     }
   }, [currentUser.role, activeNav, isAuthenticated]);
 
-  // Fetch initial orders & sync with SQLite database
+  // Fetch initial orders & sync with database (with cache-busting)
   const fetchOrdersFromApi = async () => {
     try {
-      const res = await fetch("/api/orders");
+      const res = await fetch(`/api/orders?_t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+      });
       const data = await res.json();
       if (Array.isArray(data)) {
         setOrders(data);
@@ -129,8 +132,32 @@ export default function RestaurantPosApp() {
 
   useEffect(() => {
     fetchOrdersFromApi();
-    const interval = setInterval(fetchOrdersFromApi, 8000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchOrdersFromApi, 2500);
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        bc = new BroadcastChannel("keivo_pos_orders_sync");
+        bc.onmessage = () => {
+          fetchOrdersFromApi();
+        };
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "keivo_order_sync_trigger") {
+        fetchOrdersFromApi();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      clearInterval(interval);
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
+    };
   }, []);
 
   // Keyboard Shortcuts (F2: Search, F3: Takeaway, F4: Ojol, F5: New Table)
@@ -163,6 +190,18 @@ export default function RestaurantPosApp() {
     });
 
     if (alreadySavedToDb) {
+      try {
+        if (typeof window !== "undefined") {
+          if ("BroadcastChannel" in window) {
+            const bc = new BroadcastChannel("keivo_pos_orders_sync");
+            bc.postMessage({ type: "SYNC_ORDERS", timestamp: Date.now() });
+            bc.close();
+          }
+          localStorage.setItem("keivo_order_sync_trigger", Date.now().toString());
+        }
+      } catch (e) {
+        // ignore
+      }
       return;
     }
 
@@ -187,6 +226,20 @@ export default function RestaurantPosApp() {
           cashierId: newOrder.cashierId || currentUser.id,
         }),
       });
+
+      // Notify all tabs / screens instantly
+      try {
+        if (typeof window !== "undefined") {
+          if ("BroadcastChannel" in window) {
+            const bc = new BroadcastChannel("keivo_pos_orders_sync");
+            bc.postMessage({ type: "SYNC_ORDERS", timestamp: Date.now() });
+            bc.close();
+          }
+          localStorage.setItem("keivo_order_sync_trigger", Date.now().toString());
+        }
+      } catch (e) {
+        // ignore
+      }
     } catch (err) {
       console.error("Failed to save order to database:", err);
     }

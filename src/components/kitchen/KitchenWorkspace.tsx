@@ -184,11 +184,14 @@ export function KitchenWorkspace({ orders, onNavigateHome, onUpdateOrderStatus }
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch orders from API
+  // Fetch orders from API with cache-busting
   const fetchOrders = async (silent = false) => {
     if (!silent) setIsRefreshing(true);
     try {
-      const res = await fetch("/api/orders");
+      const res = await fetch(`/api/orders?_t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+      });
       const data = await res.json();
       if (Array.isArray(data)) {
         const newOrders = data.filter((o) => o.kitchenStatus === "new");
@@ -212,7 +215,9 @@ export function KitchenWorkspace({ orders, onNavigateHome, onUpdateOrderStatus }
   // Fetch products for Stock Management
   const fetchProducts = async () => {
     try {
-      const res = await fetch("/api/menu-items");
+      const res = await fetch(`/api/menu-items?_t=${Date.now()}`, {
+        cache: "no-store",
+      });
       const data = await res.json();
       if (Array.isArray(data)) {
         setProductsList(data);
@@ -222,13 +227,38 @@ export function KitchenWorkspace({ orders, onNavigateHome, onUpdateOrderStatus }
     }
   };
 
+  // Fast real-time polling (every 2 seconds) + cross-tab instant notification
   useEffect(() => {
     fetchOrders();
     fetchProducts();
     const interval = setInterval(() => {
       fetchOrders(true);
-    }, 3500);
-    return () => clearInterval(interval);
+    }, 2000);
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        bc = new BroadcastChannel("keivo_pos_orders_sync");
+        bc.onmessage = () => {
+          fetchOrders(true);
+        };
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "keivo_order_sync_trigger") {
+        fetchOrders(true);
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      clearInterval(interval);
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
+    };
   }, [soundEnabled]);
 
   // Show temporary toast

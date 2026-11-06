@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
+
 // GET /api/tables - List all tables from SQLite database
 export async function GET() {
   try {
@@ -89,10 +93,24 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json(tables);
+    return NextResponse.json(tables, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    });
   } catch (error) {
-    console.error("Error fetching tables from SQLite:", error);
-    return NextResponse.json({ error: "Failed to fetch tables" }, { status: 500 });
+    console.error("Error fetching tables:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch tables" },
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+        },
+      }
+    );
   }
 }
 
