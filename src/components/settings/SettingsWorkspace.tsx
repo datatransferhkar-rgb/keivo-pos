@@ -1266,6 +1266,16 @@ export function SettingsWorkspace() {
                     Klik tombol di bawah untuk memunculkan daftar perangkat Bluetooth. Pilih printer dari daftar.
                   </p>
 
+                  <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-900 text-[11px] flex flex-col gap-1 leading-relaxed">
+                    <span className="font-bold flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm text-amber-700">info</span>
+                      Tips Khusus Pengguna iPad / iPhone:
+                    </span>
+                    <span>
+                      Apple Safari &amp; Chrome di iPad tidak mendukung Web Bluetooth langsung. Gunakan opsi <strong>&quot;Printer Laptop (OS)&quot;</strong> di atas (AirPrint/Dialog Cetak), atau buka web ini lewat browser <strong>Bluefy</strong> gratis di App Store.
+                    </span>
+                  </div>
+
                   {btScanStatus === "found" && btFoundDevice ? (
                     <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
@@ -1281,9 +1291,14 @@ export function SettingsWorkspace() {
                       </button>
                     </div>
                   ) : btScanStatus === "error" ? (
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700">
-                      <span className="material-symbols-outlined text-base">error</span>
-                      <span>Gagal scan. Pastikan Bluetooth aktif atau gunakan mode Printer Laptop.</span>
+                    <div className="flex flex-col gap-1 px-3 py-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <span className="material-symbols-outlined text-base">error</span>
+                        <span>Perangkat tidak ditemukan atau browser tidak mendukung Bluetooth</span>
+                      </div>
+                      <span className="text-[10px] text-rose-600 leading-snug">
+                        Di iPad / iPhone: gunakan opsi &quot;Printer Laptop (OS)&quot; (AirPrint/Dialog Cetak) atau buka lewat browser Bluefy di App Store.
+                      </span>
                     </div>
                   ) : null}
 
