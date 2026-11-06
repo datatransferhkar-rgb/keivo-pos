@@ -6,7 +6,9 @@ import { useRestaurant } from "@/context/RestaurantContext";
 import { formatCurrency } from "@/lib/formatters";
 
 interface KitchenWorkspaceProps {
+  orders?: OrderData[];
   onNavigateHome?: () => void;
+  onUpdateOrderStatus?: (orderId: string, status: KitchenStatus) => void;
 }
 
 // Sound Synthesizer via Web Audio API (no external asset needed)
@@ -121,11 +123,18 @@ export function getChannelStyle(channel?: string, channelLabel?: string) {
   };
 }
 
-export function KitchenWorkspace({ onNavigateHome }: KitchenWorkspaceProps) {
+export function KitchenWorkspace({ orders, onNavigateHome, onUpdateOrderStatus }: KitchenWorkspaceProps) {
   const { settings, currentUser, switchRole, logout } = useRestaurant();
-  const [kitchenOrders, setKitchenOrders] = useState<OrderData[]>([]);
+  const [kitchenOrders, setKitchenOrders] = useState<OrderData[]>(orders || []);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // Sync orders from parent when props change
+  useEffect(() => {
+    if (orders && orders.length > 0) {
+      setKitchenOrders(orders);
+    }
+  }, [orders]);
 
   // Time state for live clock
   const [currentTime, setCurrentTime] = useState<string>("");
@@ -287,6 +296,11 @@ export function KitchenWorkspace({ onNavigateHome }: KitchenWorkspaceProps) {
       })
     );
 
+    // Update parent orders if callback provided in updateStatus
+    if (onUpdateOrderStatus) {
+      onUpdateOrderStatus(orderId, nextStatus);
+    }
+
     try {
       await fetch("/api/orders", {
         method: "PATCH",
@@ -327,6 +341,11 @@ export function KitchenWorkspace({ onNavigateHome }: KitchenWorkspaceProps) {
 
     // Add to dispatched list so it immediately disappears from KDS screen
     setDispatchedOrderIds((prev) => [...prev, order.id]);
+
+    // Update parent orders if callback provided in dispatch
+    if (onUpdateOrderStatus) {
+      onUpdateOrderStatus(order.id, "ready");
+    }
 
     try {
       await fetch("/api/orders", {

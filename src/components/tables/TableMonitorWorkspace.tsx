@@ -9,6 +9,7 @@ interface TableMonitorWorkspaceProps {
   orders?: OrderData[];
   onNavigateHome?: () => void;
   onOpenPos?: () => void;
+  onUpdateOrderStatus?: (orderId: string, status: KitchenStatus) => void;
 }
 
 // Sound Synthesizer via Web Audio API (no external asset needed)
@@ -127,6 +128,7 @@ export function TableMonitorWorkspace({
   orders,
   onNavigateHome,
   onOpenPos,
+  onUpdateOrderStatus,
 }: TableMonitorWorkspaceProps) {
   const { settings, currentUser, switchRole, logout } = useRestaurant();
   const [allOrders, setAllOrders] = useState<OrderData[]>(orders || []);
@@ -264,6 +266,10 @@ export function TableMonitorWorkspace({
           : o
       )
     );
+
+    if (onUpdateOrderStatus) {
+      onUpdateOrderStatus(order.id, "served");
+    }
 
     try {
       // 1. Update order in database to "served" with optional customerComment

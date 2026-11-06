@@ -273,6 +273,27 @@ export default function RestaurantPosApp() {
     });
   };
 
+  const handleUpdateOrderStatus = (orderId: string, kitchenStatus: import("@/types/pos").KitchenStatus) => {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              kitchenStatus,
+              kitchenStatusLabel:
+                kitchenStatus === "ready"
+                  ? "Selesai Masak"
+                  : kitchenStatus === "in_progress"
+                  ? "Dimasak"
+                  : kitchenStatus === "completed" || kitchenStatus === "served"
+                  ? "Selesai Disajikan"
+                  : "Pesanan Baru",
+            }
+          : o
+      )
+    );
+  };
+
   const handlePrintWaiterSheet = (table: string, orderOrItems?: OrderData | string) => {
     let targetOrder: OrderData | undefined;
     if (orderOrItems && typeof orderOrItems === "object") {
@@ -411,10 +432,12 @@ export default function RestaurantPosApp() {
             />
           ) : activeNav === "kitchen" ? (
             <KitchenWorkspace
+              orders={orders}
               onNavigateHome={() => {
                 setActiveNav("dashboard");
                 if (typeof window !== "undefined") window.location.hash = "dashboard";
               }}
+              onUpdateOrderStatus={handleUpdateOrderStatus}
             />
           ) : activeNav === "area_meja" ? (
             <TableMonitorWorkspace
@@ -427,6 +450,7 @@ export default function RestaurantPosApp() {
                 setActiveNav("pos");
                 if (typeof window !== "undefined") window.location.hash = "pos";
               }}
+              onUpdateOrderStatus={handleUpdateOrderStatus}
             />
           ) : activeNav === "master_data" ? (
             <MasterDataWorkspace />
