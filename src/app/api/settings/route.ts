@@ -1,0 +1,128 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+
+export async function GET() {
+  try {
+    let settings = await db.restaurantSetting.findUnique({
+      where: { id: "default" },
+    });
+
+    if (!settings) {
+      settings = await db.restaurantSetting.create({
+        data: {
+          id: "default",
+          restaurantName: "Pawon Nusantara",
+          branchName: "Cabang Senopati",
+          posTerminal: "POS REG-01",
+          logoUrl:
+            "https://lh3.googleusercontent.com/aida-public/AB6AXuBZ38yzMys7rDMMvVwNdnO6Qn2uICUNbqSa-5UoGm10fLVYf6WDkRMOCPeRdtoxJkv8OUADMdxDXPsQzjLKJTHKblLIZvPbTlXyJC3xkOCsKw_cNbNO52ydpmNiSpokMBP8HbWAok_cF18e76XVNvX2CMcM1ZOJ5jFrBg7FzXMvJVJrdNurVe1rUQovs3FiEhVmPwbcngnw5cj9prjV2eg9F67BhB-Yd0e9AGcUPrn8t-DkCnmjVVTI",
+          address: "Jl. Senopati No. 45, Kebayoran Baru, Jakarta Selatan",
+          phone: "0812-3456-7890",
+          receiptFooter:
+            "Terima kasih atas kunjungan Anda di Pawon Nusantara! Silakan datang kembali.",
+          staticQrLabel: "QRIS Pawon Nusantara (BCA)",
+          bankTransferInstructions: "BCA 8830-1234-56 a/n Pawon Nusantara Resto",
+          instagram: "@pawon.nusantara",
+          showInstagram: true,
+          facebook: "Pawon Nusantara Resto",
+          showFacebook: true,
+          tiktok: "@pawon.nusantara",
+          showTiktok: true,
+        },
+      });
+    }
+
+    return NextResponse.json(settings);
+  } catch (error) {
+    console.error("Error fetching restaurant settings:", error);
+    return NextResponse.json(
+      {
+        restaurantName: "Pawon Nusantara",
+        branchName: "Cabang Senopati",
+        posTerminal: "POS REG-01",
+        logoUrl:
+          "https://lh3.googleusercontent.com/aida-public/AB6AXuBZ38yzMys7rDMMvVwNdnO6Qn2uICUNbqSa-5UoGm10fLVYf6WDkRMOCPeRdtoxJkv8OUADMdxDXPsQzjLKJTHKblLIZvPbTlXyJC3xkOCsKw_cNbNO52ydpmNiSpokMBP8HbWAok_cF18e76XVNvX2CMcM1ZOJ5jFrBg7FzXMvJVJrdNurVe1rUQovs3FiEhVmPwbcngnw5cj9prjV2eg9F67BhB-Yd0e9AGcUPrn8t-DkCnmjVVTI",
+        address: "Jl. Senopati No. 45, Kebayoran Baru, Jakarta Selatan",
+        phone: "0812-3456-7890",
+        receiptFooter:
+          "Terima kasih atas kunjungan Anda di Pawon Nusantara! Silakan datang kembali.",
+        staticQrLabel: "QRIS Pawon Nusantara (BCA)",
+        bankTransferInstructions: "BCA 8830-1234-56 a/n Pawon Nusantara Resto",
+        instagram: "@pawon.nusantara",
+        showInstagram: true,
+        facebook: "Pawon Nusantara Resto",
+        showFacebook: true,
+        tiktok: "@pawon.nusantara",
+        showTiktok: true,
+      },
+      { status: 200 }
+    );
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+
+    const updated = await db.restaurantSetting.upsert({
+      where: { id: "default" },
+      update: {
+        restaurantName: body.restaurantName,
+        branchName: body.branchName,
+        posTerminal: body.posTerminal,
+        logoUrl: body.logoUrl,
+        address: body.address,
+        phone: body.phone,
+        receiptFooter: body.receiptFooter,
+        staticQrImageUrl: body.staticQrImageUrl !== undefined ? body.staticQrImageUrl : undefined,
+        staticQrLabel: body.staticQrLabel,
+        staticQrInstructions: body.staticQrInstructions !== undefined ? body.staticQrInstructions : undefined,
+        bankTransferInstructions: body.bankTransferInstructions,
+        bankAccounts: body.bankAccounts !== undefined ? (typeof body.bankAccounts === "string" ? body.bankAccounts : JSON.stringify(body.bankAccounts)) : undefined,
+        taxEnabled: body.taxEnabled !== undefined ? Boolean(body.taxEnabled) : undefined,
+        taxRate: body.taxRate !== undefined ? Number(body.taxRate) : undefined,
+        serviceChargeEnabled: body.serviceChargeEnabled !== undefined ? Boolean(body.serviceChargeEnabled) : undefined,
+        serviceChargeRate: body.serviceChargeRate !== undefined ? Number(body.serviceChargeRate) : undefined,
+        instagram: body.instagram !== undefined ? body.instagram : undefined,
+        showInstagram: body.showInstagram !== undefined ? Boolean(body.showInstagram) : undefined,
+        facebook: body.facebook !== undefined ? body.facebook : undefined,
+        showFacebook: body.showFacebook !== undefined ? Boolean(body.showFacebook) : undefined,
+        tiktok: body.tiktok !== undefined ? body.tiktok : undefined,
+        showTiktok: body.showTiktok !== undefined ? Boolean(body.showTiktok) : undefined,
+      },
+      create: {
+        id: "default",
+        restaurantName: body.restaurantName || "Pawon Nusantara",
+        branchName: body.branchName || "Cabang Senopati",
+        posTerminal: body.posTerminal || "POS REG-01",
+        logoUrl: body.logoUrl || null,
+        address: body.address || null,
+        phone: body.phone || null,
+        receiptFooter: body.receiptFooter || null,
+        staticQrImageUrl: body.staticQrImageUrl || null,
+        staticQrLabel: body.staticQrLabel || null,
+        staticQrInstructions: body.staticQrInstructions || null,
+        bankTransferInstructions: body.bankTransferInstructions || null,
+        bankAccounts: body.bankAccounts !== undefined ? (typeof body.bankAccounts === "string" ? body.bankAccounts : JSON.stringify(body.bankAccounts)) : "[]",
+        taxEnabled: body.taxEnabled !== undefined ? Boolean(body.taxEnabled) : false,
+        taxRate: body.taxRate !== undefined ? Number(body.taxRate) : 0,
+        serviceChargeEnabled: body.serviceChargeEnabled !== undefined ? Boolean(body.serviceChargeEnabled) : false,
+        serviceChargeRate: body.serviceChargeRate !== undefined ? Number(body.serviceChargeRate) : 0,
+        instagram: body.instagram || "@pawon.nusantara",
+        showInstagram: body.showInstagram !== undefined ? Boolean(body.showInstagram) : true,
+        facebook: body.facebook || "Pawon Nusantara Resto",
+        showFacebook: body.showFacebook !== undefined ? Boolean(body.showFacebook) : true,
+        tiktok: body.tiktok || "@pawon.nusantara",
+        showTiktok: body.showTiktok !== undefined ? Boolean(body.showTiktok) : true,
+      },
+    });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("Error updating restaurant settings:", error);
+    return NextResponse.json(
+      { error: "Gagal memperbarui pengaturan restoran." },
+      { status: 500 }
+    );
+  }
+}

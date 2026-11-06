@@ -1,0 +1,350 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  username     String   @unique
+  passwordHash String
+  role         String   @default("cashier") // admin, cashier, kitchen
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+}
+
+model DiningTable {
+  id               String         @id @default(cuid())
+  tableNumber      String         @unique
+  displayName      String
+  qrToken          String         @unique
+  area             String         @default("indoor") // indoor, outdoor
+  areaLabel        String         @default("Area Indoor AC")
+  capacity         Int            @default(4)
+  status           String         @default("tersedia") // tersedia, terisi, reservasi
+  statusLabel      String         @default("Tersedia")
+  customerName     String?
+  reservationTime  String?
+  reservationNotes String?
+  orderNumber      String?
+  amount           Int?
+  timeElapsed      String?
+  isProcessing     Boolean        @default(false)
+  foodStatus       String?        @default("none") // none, in_progress, ready, served
+  foodStatusLabel  String?
+  isActive         Boolean        @default(true)
+  sessions         TableSession[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@map("dining_tables")
+}
+
+model TableSession {
+  id            String      @id @default(cuid())
+  sessionNumber String      @unique
+  tableId       String
+  table         DiningTable @relation(fields: [tableId], references: [id])
+  customerName  String
+  status        String      @default("active") // active, pending_payment, paid, closed, cancelled
+  openedAt      DateTime    @default(now())
+  closedAt      DateTime?
+  orders        Order[]
+  payments      Payment[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("table_sessions")
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  sortOrder   Int        @default(0)
+  isActive    Boolean    @default(true)
+  menuItems   MenuItem[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("categories")
+}
+
+model MenuItem {
+  id          String   @id @default(cuid())
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  name        String
+  description String?
+  imageUrl    String?
+  price       Int // Rupiah integer
+  isAvailable Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  addons      String?  // JSON serialized ProductAddon[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("menu_items")
+}
+
+model OnlinePlatform {
+  id        String   @id @default(cuid())
+  name      String   @unique // GoFood, GrabFood, ShopeeFood
+  isActive  Boolean  @default(true)
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("online_platforms")
+}
+
+model Order {
+  id                 String          @id @default(cuid())
+  orderNumber        String          @unique // e.g. PN-1042
+  tableSessionId     String?
+  tableSession       TableSession?   @relation(fields: [tableSessionId], references: [id])
+  orderType          String          @default("initial") // initial, additional
+  sourceChannel      String          @default("dine_in_qr") // dine_in_qr, takeaway_walk_in, online_platform
+  fulfillmentType    String          @default("dine_in") // dine_in, takeaway, delivery_platform
+  externalPlatformId String?
+  externalPlatform   OnlinePlatform? @relation(fields: [externalPlatformId], references: [id])
+  externalOrderId    String? // e.g. #GF-8921, #SF-3310
+  customerId         String?
+  customer           Customer?       @relation(fields: [customerId], references: [id])
+  customerName       String?
+  status             String          @default("new") // new, received, in_progress, ready, completed, cancelled
+  notes              String?
+  subtotal           Int             @default(0)
+  discountAmount     Int             @default(0)
+  discountName       String?
+  promoCode          String?
+  taxAmount          Int             @default(0)
+  totalAmount        Int             @default(0)
+  paymentStatus      String          @default("unpaid") // unpaid, paid
+  items              OrderItem[]
+  payments           Payment[]
+  submittedAt        DateTime        @default(now())
+  idempotencyKey     String?         @unique
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id                 String    @id @default(cuid())
+  orderId            String
+  order              Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId         String?
+  itemNameSnapshot   String
+  unitPriceSnapshot  Int
+  quantity           Int
+  lineTotal          Int
+  customerNote       String?
+  selectedAddons     String?   // JSON serialized ProductAddon[]
+  kitchenStatus      String    @default("new") // new, in_progress, ready, cancelled
+  cancelReason       String?
+  preparedAt         DateTime?
+  readyAt            DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@map("order_items")
+}
+
+model Payment {
+  id                String          @id @default(cuid())
+  paymentNumber     String          @unique
+  tableSessionId    String?
+  tableSession      TableSession?   @relation(fields: [tableSessionId], references: [id])
+  orderId           String?
+  order             Order?          @relation(fields: [orderId], references: [id])
+  discountAmount    Int             @default(0)
+  amountDue         Int
+  amountPaid        Int
+  changeAmount      Int             @default(0)
+  method            String          @default("cash") // cash, static_qr, bank_transfer, online_channel
+  status            String          @default("paid") // paid, refunded
+  transferReference String?
+  cashierId         String?
+  cashierSessionId  String?
+  cashierSession    CashierSession? @relation(fields: [cashierSessionId], references: [id])
+  paidAt            DateTime        @default(now())
+  createdAt         DateTime        @default(now())
+
+  @@map("payments")
+}
+
+model CashierSession {
+  id                         String         @id @default(cuid())
+  sessionNumber              String         @unique // SHIFT-042
+  cashierId                  String
+  cashierName                String
+  startedAt                  DateTime       @default(now())
+  endedAt                    DateTime?
+  openingCashAmount          Int            @default(500000)
+  expectedClosingCashAmount  Int?
+  countedClosingCashAmount   Int?
+  cashDifferenceAmount       Int?
+  status                     String         @default("open") // open, closed
+  closingNotes               String?
+  payments                   Payment[]
+  cashMovements              CashMovement[]
+  createdAt                  DateTime       @default(now())
+  updatedAt                  DateTime       @updatedAt
+
+  @@map("cashier_sessions")
+}
+
+model CashMovement {
+  id               String         @id @default(cuid())
+  cashierSessionId String
+  cashierSession   CashierSession @relation(fields: [cashierSessionId], references: [id])
+  movementType     String // cash_in, cash_out, carry_forward
+  amount           Int
+  reason           String
+  createdBy        String?
+  createdAt        DateTime       @default(now())
+
+  @@map("cash_movements")
+}
+
+model RestaurantSetting {
+  id                         String   @id @default("default")
+  restaurantName             String   @default("Pawon Nusantara")
+  branchName                 String   @default("Cabang Senopati")
+  posTerminal                String   @default("POS REG-01")
+  logoUrl                    String?
+  address                    String?  @default("Jl. Senopati No. 45, Kebayoran Baru, Jakarta Selatan")
+  phone                      String?  @default("0812-3456-7890")
+  receiptFooter              String?  @default("Terima kasih atas kunjungan Anda di Pawon Nusantara! Silakan datang kembali.")
+  staticQrImageUrl           String?
+  staticQrLabel              String?  @default("QRIS Pawon Nusantara")
+  staticQrInstructions       String?  @default("Arahkan layar tablet ini ke pelanggan untuk dipindai via BCA Mobile, GoPay, OVO, ShopeePay, atau DANA.")
+  bankTransferInstructions   String?  @default("BCA 1234567890 a/n Pawon Nusantara")
+  bankAccounts               String?  @default("[]")
+  taxEnabled                 Boolean  @default(false)
+  taxRate                    Int      @default(0)
+  serviceChargeEnabled       Boolean  @default(false)
+  serviceChargeRate          Int      @default(0)
+  currency                   String   @default("IDR")
+  timezone                   String   @default("Asia/Jakarta")
+  instagram                  String?  @default("@pawon.nusantara")
+  showInstagram              Boolean  @default(true)
+  facebook                   String?  @default("Pawon Nusantara Resto")
+  showFacebook               Boolean  @default(true)
+  tiktok                     String?  @default("@pawon.nusantara")
+  showTiktok                 Boolean  @default(true)
+  updatedAt                  DateTime @updatedAt
+
+  @@map("restaurant_settings")
+}
+
+model PromoDiscount {
+  id                 String    @id @default(cuid())
+  code               String    @unique
+  name               String
+  description        String?
+  discountType       String    @default("percentage") // percentage, fixed
+  discountValue      Int       // 10 for 10%, 20000 for Rp20.000
+  minOrderAmount     Int       @default(0)
+  maxDiscount        Int?      // null if unlimited
+  scope              String    @default("all") // all, dine_in, takeaway
+  customerScope      String    @default("all") // all, member, gold, vip, personal
+  assignedCustomerId String?
+  assignedCustomer   Customer? @relation(fields: [assignedCustomerId], references: [id])
+  isActive           Boolean   @default(true)
+  usageCount         Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@map("promo_discounts")
+}
+
+model Customer {
+  id             String          @id @default(cuid())
+  name           String
+  phone          String          @unique
+  email          String?
+  tier           String          @default("regular") // regular, silver, gold, vip
+  points         Int             @default(0)
+  totalVisits    Int             @default(0)
+  totalSpent     Int             @default(0)
+  notes          String?         // Catatan preferensi rasa / alergi
+  isActive       Boolean         @default(true)
+  orders         Order[]
+  assignedPromos PromoDiscount[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@map("customers")
+}
+
+model TableArea {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("table_areas")
+}
+
+model CustomerTierCategory {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  badgeColor  String?  @default("emerald")
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("customer_tier_categories")
+}
+
+model ProductPromo {
+  id               String    @id @default(cuid())
+  name             String
+  description      String?
+  discountType     String    @default("percentage") // percentage, fixed, special_price
+  discountValue    Int       // 20 for 20%, 5000 for Rp5.000 off, or 25000 for special price
+  targetType       String    @default("specific_products") // specific_products, category, all_products
+  targetCategory   String?   // category name
+  targetProductIds String?   // JSON array of product IDs or codes: '["PRD-001", "PRD-002"]'
+  startDate        DateTime?
+  endDate          DateTime?
+  timeStart        String?   // HH:MM e.g. "14:00"
+  timeEnd          String?   // HH:MM e.g. "17:00"
+  badgeLabel       String?   // custom badge text e.g. "PROMO 20%"
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@map("product_promos")
+}
+
+model BankAccount {
+  id            String   @id @default(cuid())
+  bankName      String   // BCA, Mandiri, BRI, BNI, BSI, CIMB Niaga, dll
+  accountNumber String
+  accountName   String
+  isDefault     Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("bank_accounts")
+}

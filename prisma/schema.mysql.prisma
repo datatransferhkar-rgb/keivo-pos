@@ -1,0 +1,230 @@
+// KEIVO POS — Production MySQL Schema
+// Digunakan saat deploy ke server/production dengan MySQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid()) @db.VarChar(191)
+  name         String   @db.VarChar(191)
+  username     String   @unique @db.VarChar(191)
+  passwordHash String   @db.VarChar(255)
+  role         String   @default("cashier") @db.VarChar(50) // admin, cashier, kitchen
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+}
+
+model DiningTable {
+  id          String         @id @default(cuid()) @db.VarChar(191)
+  tableNumber String         @unique @db.VarChar(50) // e.g. Meja 01
+  displayName String         @db.VarChar(100)
+  qrToken     String         @unique @db.VarChar(191)
+  isActive    Boolean        @default(true)
+  sessions    TableSession[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@map("dining_tables")
+}
+
+model TableSession {
+  id            String      @id @default(cuid()) @db.VarChar(191)
+  sessionNumber String      @unique @db.VarChar(100)
+  tableId       String      @db.VarChar(191)
+  table         DiningTable @relation(fields: [tableId], references: [id])
+  customerName  String      @db.VarChar(191)
+  status        String      @default("active") @db.VarChar(50) // active, pending_payment, paid, closed, cancelled
+  openedAt      DateTime    @default(now())
+  closedAt      DateTime?
+  orders        Order[]
+  payments      Payment[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([tableId])
+  @@map("table_sessions")
+}
+
+model Category {
+  id          String     @id @default(cuid()) @db.VarChar(191)
+  name        String     @db.VarChar(100)
+  description String?    @db.Text
+  sortOrder   Int        @default(0)
+  isActive    Boolean    @default(true)
+  menuItems   MenuItem[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("categories")
+}
+
+model MenuItem {
+  id          String   @id @default(cuid()) @db.VarChar(191)
+  categoryId  String   @db.VarChar(191)
+  category    Category @relation(fields: [categoryId], references: [id])
+  name        String   @db.VarChar(191)
+  description String?  @db.Text
+  imageUrl    String?  @db.Text
+  price       Int // Rupiah integer
+  isAvailable Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([categoryId])
+  @@map("menu_items")
+}
+
+model OnlinePlatform {
+  id        String   @id @default(cuid()) @db.VarChar(191)
+  name      String   @unique @db.VarChar(50) // GoFood, GrabFood, ShopeeFood
+  isActive  Boolean  @default(true)
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("online_platforms")
+}
+
+model Order {
+  id                 String          @id @default(cuid()) @db.VarChar(191)
+  orderNumber        String          @unique @db.VarChar(50) // e.g. #PN-1042
+  tableSessionId     String?         @db.VarChar(191)
+  tableSession       TableSession?   @relation(fields: [tableSessionId], references: [id])
+  orderType          String          @default("initial") @db.VarChar(50) // initial, additional
+  sourceChannel      String          @default("dine_in_qr") @db.VarChar(50) // dine_in_qr, takeaway_walk_in, online_platform
+  fulfillmentType    String          @default("dine_in") @db.VarChar(50) // dine_in, takeaway, delivery_platform
+  externalPlatformId String?         @db.VarChar(191)
+  externalPlatform   OnlinePlatform? @relation(fields: [externalPlatformId], references: [id])
+  externalOrderId    String?         @db.VarChar(100) // e.g. #GF-8921, #SF-3310
+  customerName       String?         @db.VarChar(191)
+  status             String          @default("new") @db.VarChar(50) // new, in_progress, ready, completed, cancelled
+  notes              String?         @db.Text
+  subtotal           Int             @default(0)
+  taxAmount          Int             @default(0)
+  totalAmount        Int             @default(0)
+  paymentStatus      String          @default("unpaid") @db.VarChar(50) // unpaid, paid
+  items              OrderItem[]
+  payments           Payment[]
+  submittedAt        DateTime        @default(now())
+  idempotencyKey     String?         @unique @db.VarChar(191)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([tableSessionId])
+  @@index([externalPlatformId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                 String    @id @default(cuid()) @db.VarChar(191)
+  orderId            String    @db.VarChar(191)
+  order              Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId         String?   @db.VarChar(191)
+  itemNameSnapshot   String    @db.VarChar(191)
+  unitPriceSnapshot  Int
+  quantity           Int
+  lineTotal          Int
+  customerNote       String?   @db.Text
+  kitchenStatus      String    @default("new") @db.VarChar(50) // new, in_progress, ready, cancelled
+  cancelReason       String?   @db.Text
+  preparedAt         DateTime?
+  readyAt            DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model Payment {
+  id                String          @id @default(cuid()) @db.VarChar(191)
+  paymentNumber     String          @unique @db.VarChar(100)
+  tableSessionId    String?         @db.VarChar(191)
+  tableSession      TableSession?   @relation(fields: [tableSessionId], references: [id])
+  orderId           String?         @db.VarChar(191)
+  order             Order?          @relation(fields: [orderId], references: [id])
+  amountDue         Int
+  amountPaid        Int
+  changeAmount      Int             @default(0)
+  method            String          @default("cash") @db.VarChar(50) // cash, static_qr, bank_transfer, online_channel
+  status            String          @default("paid") @db.VarChar(50) // paid, refunded
+  transferReference String?         @db.VarChar(191)
+  cashierId         String?         @db.VarChar(191)
+  cashierSessionId  String?         @db.VarChar(191)
+  cashierSession    CashierSession? @relation(fields: [cashierSessionId], references: [id])
+  paidAt            DateTime        @default(now())
+  createdAt         DateTime        @default(now())
+
+  @@index([tableSessionId])
+  @@index([orderId])
+  @@index([cashierSessionId])
+  @@map("payments")
+}
+
+model CashierSession {
+  id                         String         @id @default(cuid()) @db.VarChar(191)
+  sessionNumber              String         @unique @db.VarChar(50) // SHIFT-042
+  cashierId                  String         @db.VarChar(191)
+  cashierName                String         @db.VarChar(191)
+  startedAt                  DateTime       @default(now())
+  endedAt                    DateTime?
+  openingCashAmount          Int            @default(500000)
+  expectedClosingCashAmount  Int?
+  countedClosingCashAmount   Int?
+  cashDifferenceAmount       Int?
+  status                     String         @default("open") @db.VarChar(50) // open, closed
+  closingNotes               String?        @db.Text
+  payments                   Payment[]
+  cashMovements              CashMovement[]
+  createdAt                  DateTime       @default(now())
+  updatedAt                  DateTime       @updatedAt
+
+  @@map("cashier_sessions")
+}
+
+model CashMovement {
+  id               String         @id @default(cuid()) @db.VarChar(191)
+  cashierSessionId String         @db.VarChar(191)
+  cashierSession   CashierSession @relation(fields: [cashierSessionId], references: [id])
+  movementType     String         @db.VarChar(50) // cash_in, cash_out, carry_forward
+  amount           Int
+  reason           String         @db.Text
+  createdBy        String?        @db.VarChar(191)
+  createdAt        DateTime       @default(now())
+
+  @@index([cashierSessionId])
+  @@map("cash_movements")
+}
+
+model RestaurantSetting {
+  id                         String   @id @default("default") @db.VarChar(191)
+  restaurantName             String   @default("Pawon Nusantara") @db.VarChar(191)
+  branchName                 String   @default("Cabang Senopati") @db.VarChar(191)
+  posTerminal                String   @default("POS REG-01") @db.VarChar(50)
+  logoUrl                    String?  @db.Text
+  address                    String?  @default("Jl. Senopati No. 45, Kebayoran Baru, Jakarta Selatan") @db.Text
+  phone                      String?  @default("0812-3456-7890") @db.VarChar(50)
+  receiptFooter              String?  @default("Terima kasih atas kunjungan Anda di Pawon Nusantara! Silakan datang kembali.") @db.Text
+  staticQrImageUrl           String?  @db.Text
+  staticQrLabel              String?  @default("QRIS Pawon Nusantara") @db.VarChar(191)
+  bankTransferInstructions   String?  @default("BCA 1234567890 a/n Pawon Nusantara") @db.Text
+  taxEnabled                 Boolean  @default(false)
+  taxRate                    Int      @default(0)
+  serviceChargeEnabled       Boolean  @default(false)
+  serviceChargeRate          Int      @default(0)
+  currency                   String   @default("IDR") @db.VarChar(10)
+  timezone                   String   @default("Asia/Jakarta") @db.VarChar(50)
+  updatedAt                  DateTime @updatedAt
+
+  @@map("restaurant_settings")
+}

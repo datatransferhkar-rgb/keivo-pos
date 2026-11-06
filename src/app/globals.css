@@ -1,0 +1,334 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-fixed: #baeed9;
+  --color-surface-dim: #d0dbed;
+  --color-surface-container-high: #dee9fc;
+  --color-background: #f8f9ff;
+  --color-on-primary-fixed-variant: #1d4f40;
+  --color-on-error: #ffffff;
+  --color-tertiary: #003713;
+  --color-outline-variant: #c0c9c3;
+  --color-secondary-fixed-dim: #ffb77d;
+  --color-inverse-primary: #9ed1bd;
+  --color-on-surface: #121c2a;
+  --color-inverse-on-surface: #eaf1ff;
+  --color-secondary-fixed: #ffdcc3;
+  --color-primary-fixed-dim: #9ed1bd;
+  --color-surface-variant: #d9e3f6;
+  --color-primary-container: #1b4d3e;
+  --color-on-primary-container: #8abda9;
+  --color-on-background: #121c2a;
+  --color-on-tertiary: #ffffff;
+  --color-secondary: #904d00;
+  --color-surface-container-low: #eff4ff;
+  --color-tertiary-container: #00501f;
+  --color-surface-container-highest: #d9e3f6;
+  --color-error-container: #ffdad6;
+  --color-on-primary-fixed: #002117;
+  --color-on-tertiary-fixed: #002109;
+  --color-surface-tint: #376757;
+  --color-error: #ba1a1a;
+  --color-outline: #707974;
+  --color-on-secondary-container: #663500;
+  --color-tertiary-fixed: #7ffc97;
+  --color-inverse-surface: #27313f;
+  --color-surface-container-lowest: #ffffff;
+  --color-primary: #003629;
+  --color-on-primary: #ffffff;
+  --color-secondary-container: #fe932c;
+  --color-on-secondary: #ffffff;
+  --color-surface-container: #e6eeff;
+  --color-on-surface-variant: #404945;
+  --color-tertiary-fixed-dim: #62df7d;
+  --color-surface-bright: #f8f9ff;
+  --color-surface: #f8f9ff;
+  --color-on-secondary-fixed: #2f1500;
+  --color-on-secondary-fixed-variant: #6e3900;
+  --color-on-tertiary-container: #4bc96b;
+  --color-on-tertiary-fixed-variant: #005320;
+  --color-on-error-container: #93000a;
+
+  --spacing-gutter-tablet: 0.75rem;
+  --spacing-space-lg: 1.5rem;
+  --spacing-space-xs: 0.25rem;
+  --spacing-space-md: 1rem;
+  --spacing-space-sm: 0.5rem;
+  --spacing-gutter: 1rem;
+  --spacing-space-xl: 2rem;
+  --spacing-margin: 1rem;
+  --spacing-margin-desktop: 1.5rem;
+  --spacing-gutter-desktop: 1.25rem;
+  --spacing-margin-tablet: 1.25rem;
+}
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background-color: var(--color-surface, #f8f9ff);
+    color: var(--color-on-surface, #121c2a);
+  }
+
+  body {
+    overscroll-behavior: none;
+  }
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Material Symbols Outlined settings */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  display: inline-block;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'liga';
+}
+
+/* Typography helper classes matching design tokens */
+.font-headline-xl {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 36px;
+  line-height: 44px;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.text-headline-xl {
+  font-size: 36px;
+  line-height: 44px;
+  letter-spacing: -0.02em;
+}
+
+.font-headline-lg {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 28px;
+  line-height: 36px;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+
+.text-headline-lg {
+  font-size: 28px;
+  line-height: 36px;
+  letter-spacing: -0.01em;
+}
+
+.font-headline-md {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 22px;
+  line-height: 28px;
+  letter-spacing: -0.005em;
+  font-weight: 600;
+}
+
+.text-headline-md {
+  font-size: 22px;
+  line-height: 28px;
+  letter-spacing: -0.005em;
+}
+
+.font-headline-sm {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.text-headline-sm {
+  font-size: 18px;
+  line-height: 24px;
+}
+
+.font-label-lg {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.01em;
+  font-weight: 600;
+}
+
+.text-label-lg {
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.01em;
+}
+
+.font-label-md {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+}
+
+.text-label-md {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+}
+
+.font-label-sm {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 11px;
+  line-height: 14px;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.text-label-sm {
+  font-size: 11px;
+  line-height: 14px;
+  letter-spacing: 0.04em;
+}
+
+.font-body-lg {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+}
+
+.text-body-lg {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.font-body-md {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+}
+
+.text-body-md {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.font-body-sm {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+.text-body-sm {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.font-currency-row {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 15px;
+  line-height: 20px;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+
+.text-currency-row {
+  font-size: 15px;
+  line-height: 20px;
+  letter-spacing: -0.01em;
+}
+
+.font-currency-display {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 32px;
+  line-height: 38px;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+}
+
+.text-currency-display {
+  font-size: 32px;
+  line-height: 38px;
+  letter-spacing: -0.03em;
+}
+
+/* Print styling */
+@media print {
+  @page {
+    margin: 5mm;
+    size: auto;
+  }
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  body * {
+    visibility: hidden;
+  }
+  #printable-area,
+  #printable-area *,
+  #pos-direct-printable-area,
+  #pos-direct-printable-area *,
+  #pos-shift-report-printable-area,
+  #pos-shift-report-printable-area *,
+  #table-qr-print-area,
+  #table-qr-print-area * {
+    visibility: visible !important;
+  }
+  #printable-area,
+  #pos-direct-printable-area,
+  #pos-shift-report-printable-area {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 58mm !important;
+    max-width: 58mm !important;
+    margin: 0 !important;
+    padding: 2mm !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  #table-qr-print-area {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 4mm !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  aside, header, nav, .no-print {
+    display: none !important;
+  }
+}
+
+/* ========================================================
+   TABLET POS & TOUCHSCREEN ERGONOMICS (PRIORITAS 2)
+   ======================================================== */
+html, body {
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+button, [role="button"], input[type="submit"], input[type="button"] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+
