@@ -133,124 +133,155 @@ export function PrintModal({
         ) : null}
 
         {/* PRINTABLE CONTENT AREA */}
-        <div id="printable-area" className="bg-white p-4 font-mono text-xs border border-dashed border-gray-300 rounded-lg">
+        <div id="printable-area" className="bg-white p-3 font-sans text-xs border border-dashed border-gray-300 rounded-lg text-black">
           {type === "receipt" && order && (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
               {/* Header */}
-              <div className="text-center border-b border-dashed pb-2">
-                <h3 className="font-bold text-sm uppercase">{settings.restaurantName}</h3>
-                <p className="text-[11px] text-gray-600">{settings.branchName}</p>
-                <p className="text-[10px] text-gray-500">{settings.address}</p>
-                <p className="text-[10px] text-gray-500">Telp: {settings.phone}</p>
+              <div className="text-center border-b border-dashed border-black pb-2 mb-1">
+                <h3 className="font-black text-sm uppercase tracking-wide text-black">{settings.restaurantName || "PAWON NUSANTARA"}</h3>
+                {settings.branchName && <p className="text-[11px] font-bold text-black mt-0.5">{settings.branchName}</p>}
+                {settings.address && <p className="text-[9.5px] text-gray-800 leading-tight mt-0.5">{settings.address}</p>}
+                {settings.phone && <p className="text-[9.5px] text-gray-800">Telp: {settings.phone}</p>}
               </div>
 
-              {/* Meta */}
-              <div className="flex flex-col gap-0.5 text-[11px] border-b border-dashed pb-2">
-                <div className="flex justify-between">
+              {/* Meta Transaksi (Rata Kanan) */}
+              <div className="flex flex-col gap-0.5 text-[10px] border-b border-dashed border-black pb-2 mb-1 text-black">
+                <div className="flex justify-between items-baseline">
                   <span>No. Transaksi:</span>
-                  <span className="font-bold">{order.orderNumber}</span>
+                  <span className="font-bold text-right">{order.orderNumber}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-baseline">
                   <span>Waktu:</span>
-                  <span>{order.orderTime}</span>
+                  <span className="text-right">{order.orderTime}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-baseline">
                   <span>Kasir:</span>
-                  <span>{cashierName}</span>
+                  <span className="text-right">{order.cashierName || cashierName}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-baseline">
                   <span>Meja / Tamu:</span>
-                  <span className="font-bold">{order.tableOrGuest}</span>
+                  <span className="font-bold text-right">{order.tableOrGuest}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-baseline">
                   <span>Saluran:</span>
-                  <span>{order.channelLabel}</span>
+                  <span className="text-right">{order.channelLabel}</span>
                 </div>
                 {order.customerTier && (
-                  <div className="flex justify-between items-center py-0.5 px-1 mt-0.5 rounded bg-purple-50 text-purple-950 font-bold">
+                  <div className="flex justify-between items-center py-0.5 px-1 mt-0.5 rounded bg-gray-100 text-black font-bold text-[9px]">
                     <span>Pelanggan / Member:</span>
-                    <span className="uppercase text-[10px] px-1.5 py-0.2 rounded bg-purple-200 text-purple-900 border border-purple-300">
-                      ★ {order.customerTier}
-                    </span>
+                    <span className="uppercase text-right">★ {order.customerTier}</span>
                   </div>
                 )}
               </div>
 
-              {/* Items: Table Format Sejajar */}
-              <div className="border-b border-dashed pb-2">
-                <table className="w-full text-[10px] border-collapse leading-tight">
-                  <tbody>
-                    {order.items.map((it, idx) => (
-                      <tr key={idx} className="align-top">
-                        <td className="w-5 pr-1 py-0.5 font-bold text-black align-top shrink-0">
-                          {it.qty}x
-                        </td>
-                        <td className="pr-1 py-0.5 text-black align-top">
-                          <span className="font-bold">{it.name}</span>
-                          {it.selectedAddons && it.selectedAddons.length > 0 && (
-                            <div className="text-[9px] text-gray-600 font-normal mt-0.5">
-                              {it.selectedAddons.map((add, aIdx) => (
-                                <span key={aIdx} className="block">+ {add.name}</span>
-                              ))}
-                            </div>
-                          )}
-                          {it.note && (
-                            <div className="text-[9px] text-gray-500 italic font-normal mt-0.5">
-                              ({it.note})
-                            </div>
-                          )}
-                        </td>
-                        <td className="text-right py-0.5 pl-1 font-bold whitespace-nowrap text-black align-top shrink-0">
-                          {formatCurrency(it.price * it.qty)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              {/* Items: Format Bersih Sebaris Horizontal Sesuai Lampiran */}
+              <div className="flex flex-col gap-1.5 border-b border-dashed border-black pb-2 mb-1">
+                {order.items.map((it, idx) => (
+                  <div key={idx} className="flex flex-col text-[10.5px]">
+                    <div className="flex justify-between items-baseline gap-2">
+                      <div className="flex items-baseline gap-1.5 flex-1 min-w-0">
+                        <span className="font-bold shrink-0">{it.qty}x</span>
+                        <span className="font-bold text-black break-words">{it.name}</span>
+                      </div>
+                      <span className="font-bold text-right text-black whitespace-nowrap shrink-0">
+                        {formatCurrency(it.price * it.qty)}
+                      </span>
+                    </div>
+                    {((it.selectedAddons && it.selectedAddons.length > 0) || it.note) && (
+                      <div className="pl-6 text-[9.5px] text-gray-800 flex flex-col gap-0.5 mt-0.5">
+                        {it.selectedAddons?.map((add, aIdx) => (
+                          <span key={aIdx}>+ {add.name}</span>
+                        ))}
+                        {it.note && <span>({it.note})</span>}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
 
-              {/* Totals */}
-              <div className="flex flex-col gap-1 text-[11px] border-b border-dashed pb-2">
-                {order.subtotal && order.subtotal > 0 && order.discountAmount && order.discountAmount > 0 && (
-                  <div className="flex justify-between text-gray-600">
-                    <span>Subtotal:</span>
-                    <span>{formatCurrency(order.subtotal)}</span>
-                  </div>
-                )}
-                {order.discountAmount && order.discountAmount > 0 && (
-                  <div className="flex justify-between font-bold text-red-600">
-                    <span>Diskon ({order.discountName || "Promo"}):</span>
-                    <span>-{formatCurrency(order.discountAmount)}</span>
-                  </div>
-                )}
-                {order.promoCode && (
-                  <div className="flex justify-between items-center text-emerald-800 font-bold">
-                    <span>Kode Promo:</span>
-                    <span className="font-mono bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-300 text-[10px]">
-                      {order.promoCode}
-                    </span>
-                  </div>
-                )}
-                {order.taxAmount && order.taxAmount > 0 && (
-                  <div className="flex justify-between text-gray-600">
-                    <span>PB1 ({settings.taxRate || 10}%):</span>
-                    <span>{formatCurrency(order.taxAmount)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-bold text-sm pt-1">
-                  <span>TOTAL:</span>
-                  <span>{formatCurrency(order.total)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Status:</span>
-                  <span className="font-bold uppercase text-green-700">LUNAS</span>
-                </div>
-                {order.paymentNote && (
-                  <div className="flex justify-between text-[10px] text-gray-600">
-                    <span>Keterangan:</span>
-                    <span>{order.paymentNote}</span>
-                  </div>
-                )}
+              {/* Totals & Payment Breakdown */}
+              <div className="flex flex-col gap-1 text-[10px] border-b border-dashed border-black pb-2 mb-1 text-black">
+                {(() => {
+                  const itemsSubtotal = order.subtotal || order.items.reduce((s, it) => s + it.price * it.qty, 0);
+                  const discount = order.discountAmount || 0;
+                  const netSubtotal = Math.max(0, itemsSubtotal - discount);
+
+                  const taxRate = settings.taxRate || 5;
+                  const taxAmt = order.taxAmount !== undefined
+                    ? order.taxAmount
+                    : (settings.taxEnabled ? Math.round(netSubtotal * (taxRate / 100)) : 0);
+
+                  const srvRate = settings.serviceChargeRate || 5;
+                  const srvAmt = order.serviceChargeAmount !== undefined
+                    ? order.serviceChargeAmount
+                    : (order.serviceAmount !== undefined
+                        ? order.serviceAmount
+                        : (settings.serviceChargeEnabled ? Math.round(netSubtotal * (srvRate / 100)) : 0));
+
+                  const displayTotal = order.total || (netSubtotal + taxAmt + srvAmt);
+
+                  const paymentMethodDisplay =
+                    order.paymentMethod === "cash"
+                      ? "Tunai"
+                      : order.paymentMethod === "static_qr"
+                      ? "QRIS"
+                      : order.paymentMethod === "bank_transfer"
+                      ? "Transfer Bank"
+                      : order.paymentMethod || order.channelLabel || "Tunai";
+
+                  return (
+                    <>
+                      <div className="flex justify-between items-baseline">
+                        <span>Subtotal:</span>
+                        <span className="text-right font-medium">{formatCurrency(itemsSubtotal)}</span>
+                      </div>
+
+                      {discount > 0 && (
+                        <div className="flex justify-between items-baseline font-bold text-black">
+                          <span>Diskon {order.discountName ? `(${order.discountName})` : ""}:</span>
+                          <span className="text-right">-{formatCurrency(discount)}</span>
+                        </div>
+                      )}
+
+                      {(taxAmt > 0 || (settings.taxEnabled && (settings.taxRate ?? 0) > 0)) && (
+                        <div className="flex justify-between items-baseline text-black">
+                          <span>Pajak Restoran PB1 ({taxRate}%):</span>
+                          <span className="text-right font-medium">{formatCurrency(taxAmt)}</span>
+                        </div>
+                      )}
+
+                      {(srvAmt > 0 || (settings.serviceChargeEnabled && (settings.serviceChargeRate ?? 0) > 0)) && (
+                        <div className="flex justify-between items-baseline text-black">
+                          <span>Biaya Layanan ({srvRate}%):</span>
+                          <span className="text-right font-medium">{formatCurrency(srvAmt)}</span>
+                        </div>
+                      )}
+
+                      <div className="border-b border-dotted border-black my-1"></div>
+
+                      <div className="flex justify-between items-baseline font-black text-xs text-black">
+                        <span>TOTAL:</span>
+                        <span className="text-right text-sm">{formatCurrency(displayTotal)}</span>
+                      </div>
+
+                      <div className="flex justify-between items-baseline pt-0.5">
+                        <span>Metode Bayar:</span>
+                        <span className="text-right font-medium">{paymentMethodDisplay}</span>
+                      </div>
+
+                      <div className="flex justify-between items-baseline">
+                        <span>Status:</span>
+                        <span className="font-black uppercase text-black text-right">LUNAS</span>
+                      </div>
+
+                      {order.paymentNote && (
+                        <div className="text-[9.5px] text-gray-800 leading-tight pt-0.5">
+                          <span className="font-semibold">Keterangan:</span> {order.paymentNote}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Kupon Promo Spesial Member Kunjungan Berikutnya */}
@@ -277,13 +308,16 @@ export function PrintModal({
               })()}
 
               {/* Footer */}
-              <div className="text-center text-[10px] text-gray-500 pt-1">
-                <p>{settings.receiptFooter || "Terima kasih atas kunjungan Anda!"}</p>
+              <div className="text-center text-[9.5px] text-gray-800 pt-1 leading-tight flex flex-col gap-1">
+                <p className="font-bold text-black">
+                  {settings.receiptFooter || "Terima kasih atas kunjungan Anda di Pawon Nusantara! Silakan datang kembali."}
+                </p>
+                <div className="border-b border-dashed border-gray-400 my-1"></div>
                 {/* Social media handles */}
                 {((settings.showInstagram && settings.instagram) ||
                   (settings.showFacebook && settings.facebook) ||
                   (settings.showTiktok && settings.tiktok)) && (
-                  <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 mt-1.5 pt-1 border-t border-dashed border-gray-300 text-[9px] font-semibold text-gray-700">
+                  <div className="flex flex-col items-center justify-center gap-0.5 text-[9px] font-medium text-black">
                     {settings.showInstagram && settings.instagram && (
                       <span>IG: {settings.instagram}</span>
                     )}
@@ -295,7 +329,7 @@ export function PrintModal({
                     )}
                   </div>
                 )}
-                <p className="mt-1 text-[9px]">Sistem POS didukung oleh Keivo</p>
+                <p className="text-[8.5px] text-gray-600 mt-0.5">Sistem POS didukung oleh Keivo</p>
               </div>
             </div>
           )}

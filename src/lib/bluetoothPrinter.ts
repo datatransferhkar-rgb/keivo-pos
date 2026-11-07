@@ -209,31 +209,53 @@ export function buildReceiptEscPos(
 
   lines.push("--------------------------------");
   const itemsSubtotal = order.subtotal || order.items.reduce((s, it) => s + it.price * it.qty, 0);
-  if (order.discountAmount && order.discountAmount > 0) {
-    lines.push(`Subtotal   : ${formatCurrency(itemsSubtotal)}`);
-    lines.push(`Diskon (${order.discountName || "Promo"}): -${formatCurrency(order.discountAmount)}`);
-    if (order.promoCode) {
-      lines.push(`Kode Promo : ${order.promoCode}`);
-    }
-    if (order.taxAmount && order.taxAmount > 0) {
-      lines.push(`PB1 (${settings.taxRate}%) : ${formatCurrency(order.taxAmount)}`);
-    }
-    lines.push("--------------------------------");
-  } else if (order.total !== itemsSubtotal) {
-    lines.push(`Subtotal   : ${formatCurrency(itemsSubtotal)}`);
-    if (settings.taxEnabled && (settings.taxRate ?? 0) > 0) {
-      const taxAmt = Math.round(itemsSubtotal * ((settings.taxRate ?? 0) / 100));
-      lines.push(`PB1 (${settings.taxRate}%) : ${formatCurrency(taxAmt)}`);
-    }
-    if (settings.serviceChargeEnabled && (settings.serviceChargeRate ?? 0) > 0) {
-      const srvAmt = Math.round(itemsSubtotal * ((settings.serviceChargeRate ?? 0) / 100));
-      lines.push(`Layanan(${settings.serviceChargeRate}%): ${formatCurrency(srvAmt)}`);
-    }
-    lines.push("--------------------------------");
+  const discount = order.discountAmount || 0;
+  const netSubtotal = Math.max(0, itemsSubtotal - discount);
+
+  const taxRate = settings.taxRate || 5;
+  const taxAmt = order.taxAmount !== undefined
+    ? order.taxAmount
+    : (settings.taxEnabled ? Math.round(netSubtotal * (taxRate / 100)) : 0);
+
+  const srvRate = settings.serviceChargeRate || 5;
+  const srvAmt = order.serviceChargeAmount !== undefined
+    ? order.serviceChargeAmount
+    : (order.serviceAmount !== undefined
+        ? order.serviceAmount
+        : (settings.serviceChargeEnabled ? Math.round(netSubtotal * (srvRate / 100)) : 0));
+
+  const formatLineRight = (label: string, value: string) => {
+    const spaces = Math.max(1, 32 - label.length - value.length);
+    return `${label}${" ".repeat(spaces)}${value}`;
+  };
+
+  lines.push(formatLineRight("Subtotal:", formatCurrency(itemsSubtotal)));
+  if (discount > 0) {
+    lines.push(formatLineRight(`Diskon (${order.discountName || "Promo"}):`, `-${formatCurrency(discount)}`));
   }
-  lines.push(`TOTAL: ${formatCurrency(order.total)}`);
-  lines.push(`Status: LUNAS`);
-  if (order.paymentNote) lines.push(order.paymentNote);
+  if (taxAmt > 0 || (settings.taxEnabled && (settings.taxRate ?? 0) > 0)) {
+    lines.push(formatLineRight(`Pajak Restoran PB1 (${taxRate}%):`, formatCurrency(taxAmt)));
+  }
+  if (srvAmt > 0 || (settings.serviceChargeEnabled && (settings.serviceChargeRate ?? 0) > 0)) {
+    lines.push(formatLineRight(`Biaya Layanan (${srvRate}%):`, formatCurrency(srvAmt)));
+  }
+  lines.push("................................");
+  lines.push(formatLineRight("TOTAL:", formatCurrency(order.total)));
+
+  const paymentMethodDisplay =
+    order.paymentMethod === "cash"
+      ? "Tunai"
+      : order.paymentMethod === "static_qr"
+      ? "QRIS"
+      : order.paymentMethod === "bank_transfer"
+      ? "Transfer Bank"
+      : order.paymentMethod || order.channelLabel || "Tunai";
+
+  lines.push(formatLineRight("Metode Bayar:", paymentMethodDisplay));
+  lines.push(formatLineRight("Status:", "LUNAS"));
+  if (order.paymentNote) {
+    lines.push(`Keterangan: ${order.paymentNote}`);
+  }
   lines.push("--------------------------------");
 
   // Kupon Promo Kunjungan Berikutnya Khusus Member

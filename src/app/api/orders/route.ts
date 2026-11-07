@@ -176,6 +176,7 @@ export async function GET(request: Request) {
         discountName: o.discountName,
         promoCode: o.promoCode,
         taxAmount: o.taxAmount,
+        serviceChargeAmount: Math.max(0, o.totalAmount - (o.subtotal - (o.discountAmount || 0) + o.taxAmount)),
         total: o.totalAmount,
         kitchenStatus: o.status,
         kitchenStatusLabel,

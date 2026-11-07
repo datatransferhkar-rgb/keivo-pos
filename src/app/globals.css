@@ -297,8 +297,8 @@
     background: #ffffff !important;
     color: #000000 !important;
     font-size: 10px !important;
-    line-height: 1.25 !important;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Courier New", monospace !important;
+    line-height: 1.3 !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
   }
   #table-qr-print-area {
     display: block !important;

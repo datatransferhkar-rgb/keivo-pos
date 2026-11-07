@@ -203,6 +203,7 @@ export interface OrderData {
   promoCode?: string;
   taxAmount?: number;
   serviceAmount?: number;
+  serviceChargeAmount?: number;
   total: number;
   paymentNote?: string; // "Tunai Rp150k" or "Kembali Rp5k"
   kitchenStatus: KitchenStatus;
