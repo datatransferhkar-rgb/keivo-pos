@@ -155,6 +155,38 @@ export function TableMonitorWorkspace({
   // Toast feedback state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Fullscreen kiosk state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!(document.fullscreenElement || (document as any).webkitFullscreenElement));
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  const handleToggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+        const docEl = document.documentElement as any;
+        if (docEl.requestFullscreen) await docEl.requestFullscreen();
+        else if (docEl.webkitRequestFullscreen) await docEl.webkitRequestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
   const isPrivileged = ["owner", "admin", "manager"].includes(currentUser.role);
   const prevReadyCountRef = useRef<number>(0);
 
@@ -434,148 +466,141 @@ export function TableMonitorWorkspace({
   return (
     <div className="h-screen w-full flex flex-col bg-surface-container-high font-body-md text-on-surface overflow-hidden select-none">
       {/* ========================================================================= */}
-      {/* 1. Header Bar: Identik dengan KDS                                         */}
+      {/* 1. Header Bar: Minimalis & Clean dengan Icon Toolbar seperti POS         */}
       {/* ========================================================================= */}
-      <header className="shrink-0 px-4 py-2.5 bg-surface-container-lowest border-b border-outline-variant/30 flex items-center justify-between gap-3 shadow-xs z-30">
-        {/* Left: Branding & Back Button */}
-        <div className="flex items-center gap-3">
+      <header className="shrink-0 px-3 sm:px-4 py-2 bg-white border-b border-slate-200/80 flex items-center justify-between gap-3 shadow-2xs z-30">
+        {/* Sisi Kiri: Back, Icon, Judul Bersih */}
+        <div className="flex items-center gap-2.5 shrink-0 min-w-0">
           {isPrivileged && onNavigateHome && (
             <button
               onClick={onNavigateHome}
-              className="px-2.5 py-1.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+              className="w-9 h-9 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors cursor-pointer flex items-center justify-center shrink-0 shadow-2xs active:scale-95"
               title="Kembali ke Dashboard Utama"
             >
-              <span className="material-symbols-outlined text-base">arrow_back</span>
-              <span className="hidden sm:inline">Menu Utama</span>
+              <span className="material-symbols-outlined text-lg">arrow_back</span>
             </button>
           )}
 
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
-              <span className="material-symbols-outlined text-2xl">room_service</span>
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-headline-sm text-base font-extrabold text-on-surface leading-none">
-                  Area Meja & Monitor Tamu (Waiters)
-                </h1>
-                <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 text-[10px] font-black uppercase tracking-wider">
-                  Pelayanan & Antar Makanan
-                </span>
-              </div>
-              <span className="text-[11px] text-on-surface-variant font-medium">
-                {settings.restaurantName} • Format: Sedang Dimasak 20% & Siap Disajikan 80% (1 Baris 4 Kartu)
+          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <span className="material-symbols-outlined text-xl">room_service</span>
+          </div>
+
+          <div className="flex flex-col shrink-0">
+            <div className="flex items-center gap-2">
+              <h1 className="font-headline-sm text-sm sm:text-base font-black text-slate-900 leading-tight whitespace-nowrap">
+                Monitor Waiters &amp; Tamu
+              </h1>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-900 border border-blue-200 text-[10px] font-black uppercase tracking-wider shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                <span>Waiters</span>
               </span>
             </div>
+            <p className="text-[11px] text-slate-500 leading-tight truncate">
+              {settings.restaurantName}
+            </p>
           </div>
         </div>
 
-        {/* Center: Live Real-time Clock & Sound Indicator */}
-        <div className="hidden md:flex items-center gap-3">
-          <div className="px-3 py-1 rounded-xl bg-surface-container font-mono text-xs font-bold text-on-surface flex items-center gap-2 border border-outline-variant/30 shadow-2xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>{currentTime || "Memuat Jam..."}</span>
-          </div>
-
-          <button
-            onClick={() => setSoundEnabled((prev) => !prev)}
-            className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border ${
-              soundEnabled
-                ? "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100"
-                : "bg-surface-container text-on-surface-variant border-outline-variant/30"
-            }`}
-            title="Toggle Suara Bell Notifikasi Waiters"
+        {/* Sisi Kanan: User Badge & Minimalist Icon Toolbar (Identik dengan POS) */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Active User Badge (Sama seperti POS) */}
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 shrink-0"
+            title={`Waiters: ${currentUser.name} (${currentUser.role.toUpperCase()})`}
           >
-            <span className="material-symbols-outlined text-sm">
-              {soundEnabled ? "volume_up" : "volume_off"}
-            </span>
-            <span>{soundEnabled ? "Suara: Aktif" : "Mute"}</span>
-          </button>
-        </div>
+            <span className="w-2 h-2 rounded-full bg-cyan-500 shrink-0"></span>
+            <span className="truncate max-w-[85px] sm:max-w-[120px]">{currentUser.name}</span>
+          </div>
 
-        {/* Right: Tombol Riwayat Diantarkan, Refresh & Role Switcher */}
-        <div className="flex items-center gap-2">
-          {/* Tombol Riwayat Pesanan yang Sudah Diantarkan */}
+          {/* Divider */}
+          <div className="h-5 w-px bg-slate-200 mx-0.5 hidden sm:block shrink-0" />
+
+          {/* 1. Buka POS Kasir (jika onOpenPos ada) */}
+          {onOpenPos && (
+            <button
+              type="button"
+              id="btn-waiter-pos"
+              onClick={onOpenPos}
+              className="w-9 h-9 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 flex items-center justify-center transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0"
+              title="Buka POS Kasir &amp; Transaksi"
+            >
+              <span className="material-symbols-outlined text-lg">point_of_sale</span>
+            </button>
+          )}
+
+          {/* 2. Riwayat Pesanan Selesai Disajikan (Icon receipt_long) */}
           <button
+            type="button"
+            id="btn-waiter-riwayat"
             onClick={() => setShowHistoryModal(true)}
-            className="px-3 py-1.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-xs font-bold text-on-surface flex items-center gap-1.5 transition-colors cursor-pointer border border-outline-variant/30 shadow-2xs"
-            title="Buka Riwayat Pesanan Selesai Disajikan ke Tamu"
+            className="relative w-9 h-9 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 flex items-center justify-center transition-all active:scale-95 shadow-2xs cursor-pointer shrink-0"
+            title={`Riwayat Pesanan Selesai Disajikan (${deliveredHistoryOrders.length})`}
           >
-            <span className="material-symbols-outlined text-base text-primary">history</span>
-            <span>Riwayat Selesai Disajikan</span>
+            <span className="material-symbols-outlined text-lg text-slate-600">receipt_long</span>
             {deliveredHistoryOrders.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-mono text-[10px] font-black">
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-600 text-white text-[9px] font-black flex items-center justify-center shadow-xs">
                 {deliveredHistoryOrders.length}
               </span>
             )}
           </button>
 
-          {/* Refresh Button */}
+          {/* 3. Mode Layar Penuh (Fullscreen Kiosk Mode) */}
           <button
-            onClick={() => fetchOrders()}
-            className={`p-1.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
-              isRefreshing ? "animate-spin text-primary" : ""
+            type="button"
+            id="btn-waiter-fullscreen"
+            onClick={handleToggleFullscreen}
+            className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0 ${
+              isFullscreen
+                ? "bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-900"
+                : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
             }`}
-            title="Refresh Status Pesanan"
+            title={isFullscreen ? "Keluar Layar Penuh" : "Mode Layar Penuh Tablet Waiters"}
           >
-            <span className="material-symbols-outlined text-base">refresh</span>
+            <span className="material-symbols-outlined text-lg text-slate-600">
+              {isFullscreen ? "fullscreen_exit" : "fullscreen"}
+            </span>
           </button>
 
-          {/* User Role Switcher Dropdown */}
-          <div className="relative group">
-            <button className="px-2.5 py-1.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-xs font-bold text-on-surface flex items-center gap-1.5 cursor-pointer border border-outline-variant/20">
-              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-              <span className="hidden sm:inline">{currentUser.name}</span>
-              <span className="material-symbols-outlined text-sm">expand_more</span>
-            </button>
-            <div className="absolute right-0 top-full mt-1 w-44 bg-surface-container-lowest rounded-xl shadow-xl border border-outline-variant/30 py-1 hidden group-hover:block z-50 text-xs">
-              <button
-                onClick={() => switchRole("owner")}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface-container font-semibold"
-              >
-                Owner
-              </button>
-              <button
-                onClick={() => switchRole("admin")}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface-container font-semibold"
-              >
-                Admin
-              </button>
-              <button
-                onClick={() => switchRole("manager")}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface-container font-semibold"
-              >
-                Manager
-              </button>
-              <button
-                onClick={() => switchRole("kasir")}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface-container font-semibold"
-              >
-                Kasir (POS)
-              </button>
-              <button
-                onClick={() => switchRole("waiters")}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface-container font-semibold text-primary"
-              >
-                Waiters (Meja)
-              </button>
-              <button
-                onClick={() => switchRole("kitchen")}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface-container font-semibold"
-              >
-                Kitchen (KDS)
-              </button>
-              <div className="pt-1 mt-1 border-t border-slate-100">
-                <button
-                  onClick={() => logout()}
-                  className="w-full text-left px-3 py-1.5 hover:bg-rose-50 font-bold text-rose-700 flex items-center gap-1"
-                >
-                  <span className="material-symbols-outlined text-sm">logout</span>
-                  <span>Keluar (Logout)</span>
-                </button>
-              </div>
-            </div>
-          </div>
+          {/* 4. Notifikasi Suara (Audio Chime Toggle) */}
+          <button
+            type="button"
+            id="btn-waiter-sound-toggle"
+            onClick={() => setSoundEnabled((prev) => !prev)}
+            className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0 ${
+              soundEnabled
+                ? "bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-900"
+                : "bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-400"
+            }`}
+            title={soundEnabled ? "Notifikasi Suara Waiters Aktif (Klik untuk Mode Bisu)" : "Suara Bisu / Mute (Klik untuk Mengaktifkan)"}
+          >
+            <span className="material-symbols-outlined text-lg">
+              {soundEnabled ? "volume_up" : "volume_off"}
+            </span>
+          </button>
+
+          {/* 5. Segarkan (Refresh) */}
+          <button
+            type="button"
+            id="btn-waiter-refresh"
+            onClick={() => fetchOrders()}
+            className="w-9 h-9 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 flex items-center justify-center transition-all active:scale-95 shadow-2xs cursor-pointer shrink-0"
+            title="Segarkan Status Antrean Waiters"
+          >
+            <span className={`material-symbols-outlined text-lg text-primary ${isRefreshing ? "animate-spin" : ""}`}>
+              sync
+            </span>
+          </button>
+
+          {/* 6. Keluar / Logout */}
+          <button
+            type="button"
+            id="btn-waiter-logout"
+            onClick={() => logout()}
+            className="w-9 h-9 rounded-xl bg-white hover:bg-rose-50 border border-slate-200 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors cursor-pointer shrink-0 shadow-2xs active:scale-95"
+            title="Keluar / Logout Akun"
+          >
+            <span className="material-symbols-outlined text-lg">logout</span>
+          </button>
         </div>
       </header>
 
