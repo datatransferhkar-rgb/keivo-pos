@@ -144,6 +144,55 @@ export async function connectBluetoothDevice(
 }
 
 /**
+ * Connect to USB / Serial thermal printer via Web Serial API (Desktop Chrome / Edge)
+ */
+export async function connectSerialDevice(baudRate: number = 9600): Promise<any> {
+  if (typeof navigator === "undefined" || !("serial" in navigator)) {
+    throw new Error("Browser Anda tidak mendukung Web Serial. Gunakan Google Chrome atau Edge di Laptop/PC.");
+  }
+  const port = await (navigator as any).serial.requestPort();
+  await port.open({ baudRate });
+  return port;
+}
+
+/**
+ * Send raw byte data to Serial / USB thermal printer
+ */
+export async function sendEscPosToSerial(port: any, data: Uint8Array): Promise<void> {
+  if (!port || !port.writable) {
+    throw new Error("Port serial printer tidak siap menerima data.");
+  }
+  const writer = port.writable.getWriter();
+  try {
+    await writer.write(data);
+  } finally {
+    writer.releaseLock();
+  }
+}
+
+/**
+ * Attempt to reconnect to previously authorized Serial ports
+ */
+export async function autoReconnectSerialPort(baudRate: number = 9600): Promise<any | null> {
+  if (typeof navigator === "undefined" || !("serial" in navigator)) return null;
+  try {
+    const ports = await (navigator as any).serial.getPorts();
+    if (ports && ports.length > 0) {
+      const port = ports[0];
+      try {
+        await port.open({ baudRate });
+      } catch (e) {
+        // already open
+      }
+      return port;
+    }
+  } catch (err) {
+    console.warn("Serial auto-reconnect error:", err);
+  }
+  return null;
+}
+
+/**
  * Build standard ESC/POS formatted receipt text
  */
 export function buildReceiptEscPos(

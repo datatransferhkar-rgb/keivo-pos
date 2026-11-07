@@ -7,7 +7,13 @@ import { OrderData, RestaurantSettings, MasterProduct, KitchenStatus, ProductAdd
 import { calculateProductPromoPrice } from "@/lib/productPromoHelper";
 import { DEFAULT_CATALOG_PRODUCTS } from "@/lib/catalogData";
 import { useRestaurant } from "@/context/RestaurantContext";
-import { sendEscPosToPrinter, buildReceiptEscPos } from "@/lib/bluetoothPrinter";
+import {
+  sendEscPosToPrinter,
+  sendEscPosToSerial,
+  connectBluetoothDevice,
+  connectSerialDevice,
+  buildReceiptEscPos,
+} from "@/lib/bluetoothPrinter";
 import { TutupKasirModal } from "@/components/modals/TutupKasirModal";
 import { ProductDetailModal } from "@/components/modals/ProductDetailModal";
 import { PengeluaranKasModal, CashExpenseItem } from "@/components/modals/PengeluaranKasModal";
@@ -162,8 +168,14 @@ export function PosWorkspace({
 }: PosWorkspaceProps) {
   const {
     settings,
+    updateSettings,
     currentUser,
     activeBtDevice,
+    setActiveBtDevice,
+    activeSerialPort,
+    setActiveSerialPort,
+    printerConnectedName,
+    setPrinterConnectedName,
     switchRole,
     setCurrentUser,
     usersList,
@@ -172,27 +184,116 @@ export function PosWorkspace({
     closeCashierShift,
   } = useRestaurant();
   const [lastPrintedOrder, setLastPrintedOrder] = useState<OrderData | null>(null);
+  const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
+  const [isConnectingPrinter, setIsConnectingPrinter] = useState(false);
 
-  /** Cetak kwitansi langsung tanpa membuka pratinjau modal */
+  /** Cetak kwitansi langsung tanpa membuka dialog pop-up browser */
   const printReceiptDirectly = async (order: OrderData) => {
     setLastPrintedOrder(order);
 
-    // 1. Direct Web Bluetooth Thermal ESC/POS (tanpa dialog browser)
+    // 1. Direct Web Bluetooth Thermal ESC/POS (Mencetak langsung ke hardware tanpa dialog pop-up)
     if (activeBtDevice) {
       try {
         const text = buildReceiptEscPos(order, settings, currentUser.name);
         const encoder = new TextEncoder();
         await sendEscPosToPrinter(activeBtDevice, encoder.encode(text));
+        showToast("✓ Kwitansi langsung dicetak ke printer Bluetooth!", "success");
         return;
       } catch (err) {
-        console.error("Direct BT print error, falling back to window.print:", err);
+        console.error("Direct BT print error:", err);
       }
     }
 
-    // 2. Browser/System Print Dialog (beri jeda 250ms agar DOM #pos-direct-printable-area selesai di-render secara presisi)
-    setTimeout(() => {
-      window.print();
-    }, 250);
+    // 2. Direct Web Serial (USB) Thermal ESC/POS (Mencetak langsung ke hardware tanpa dialog pop-up)
+    if (activeSerialPort) {
+      try {
+        const text = buildReceiptEscPos(order, settings, currentUser.name);
+        const encoder = new TextEncoder();
+        await sendEscPosToSerial(activeSerialPort, encoder.encode(text));
+        showToast("✓ Kwitansi langsung dicetak ke printer USB!", "success");
+        return;
+      } catch (err) {
+        console.error("Direct Serial print error:", err);
+      }
+    }
+
+    // 3. Fallback: Browser Print Dialog
+    // HANYA dijalankan jika pengaturan autoPrintBrowserDialog diaktifkan (misal pada Chrome Kiosk Mode).
+    // Jika tidak diaktifkan, jangan paksa munculkan dialog Chrome "Save as PDF" yang mengganggu kasir!
+    if (settings.autoPrintBrowserDialog) {
+      setTimeout(() => {
+        window.print();
+      }, 250);
+    } else {
+      showToast(
+        "✓ Pembayaran Lunas! Sambungkan printer thermal di ikon printer atas untuk cetak otomatis tanpa pop up.",
+        "info"
+      );
+    }
+  };
+
+  const handleConnectBtPrinter = async () => {
+    setIsConnectingPrinter(true);
+    try {
+      const device = await connectBluetoothDevice();
+      setActiveBtDevice(device);
+      setPrinterConnectedName(device.name || "Bluetooth Thermal Printer");
+      showToast(`Printer Bluetooth "${device.name || "Thermal"}" berhasil terhubung! Siap cetak otomatis tanpa pop-up.`, "success");
+    } catch (err: any) {
+      console.error("BT connect error:", err);
+      showToast(err.message || "Gagal menghubungkan printer Bluetooth.", "error");
+    } finally {
+      setIsConnectingPrinter(false);
+    }
+  };
+
+  const handleConnectUsbPrinter = async () => {
+    setIsConnectingPrinter(true);
+    try {
+      const port = await connectSerialDevice();
+      setActiveSerialPort(port);
+      setPrinterConnectedName("USB Thermal Printer");
+      showToast("Printer USB berhasil terhubung! Siap cetak otomatis tanpa pop-up.", "success");
+    } catch (err: any) {
+      console.error("USB connect error:", err);
+      showToast(err.message || "Gagal menghubungkan printer USB.", "error");
+    } finally {
+      setIsConnectingPrinter(false);
+    }
+  };
+
+  const handleTestPrintThermal = async () => {
+    if (!activeBtDevice && !activeSerialPort) {
+      showToast("Hubungkan printer Bluetooth atau USB terlebih dahulu!", "error");
+      return;
+    }
+    try {
+      const ESC = "\x1B";
+      const LF = "\n";
+      const sampleText = `${ESC}@${ESC}a\x01${settings.restaurantName || "PAWON NUSANTARA"}\nTES CETAK PRINTER THERMAL\n--------------------------------\nStatus: BERHASIL TERHUBUNG\nCetak Otomatis: AKTIF\n--------------------------------\n${LF}${LF}${LF}${ESC}m`;
+      const data = new TextEncoder().encode(sampleText);
+      if (activeBtDevice) {
+        await sendEscPosToPrinter(activeBtDevice, data);
+      } else if (activeSerialPort) {
+        await sendEscPosToSerial(activeSerialPort, data);
+      }
+      showToast("Tes cetak berhasil dikirim ke printer thermal!", "success");
+    } catch (err: any) {
+      showToast(err.message || "Gagal mengirim tes cetak.", "error");
+    }
+  };
+
+  const handleDisconnectPrinter = () => {
+    if (activeBtDevice?.gatt?.connected) {
+      activeBtDevice.gatt.disconnect();
+    }
+    setActiveBtDevice(null);
+    if (activeSerialPort) {
+      try { activeSerialPort.close(); } catch {}
+    }
+    setActiveSerialPort(null);
+    setPrinterConnectedName("");
+    showToast("Koneksi printer thermal telah diputuskan.", "info");
   };
   const [selectedTableNumber, setSelectedTableNumber] = useState<string>("Meja 01");
   const [areaFilter, setAreaFilter] = useState<"all" | "indoor" | "outdoor">("all");
@@ -2584,6 +2685,30 @@ export function PosWorkspace({
               title="Riwayat Transaksi POS (F6)"
             >
               <span className="material-symbols-outlined text-lg text-slate-600">receipt_long</span>
+            </button>
+
+            {/* Koneksi & Status Printer Thermal (Cetak Otomatis Tanpa Pop-up) */}
+            <button
+              type="button"
+              id="btn-pos-printer"
+              onClick={() => setIsPrinterModalOpen(true)}
+              className={`relative w-9 h-9 rounded-xl border flex items-center justify-center transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0 ${
+                activeBtDevice || activeSerialPort
+                  ? "bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-800"
+                  : "bg-white hover:bg-slate-50 border-slate-200 text-slate-600"
+              }`}
+              title={
+                activeBtDevice || activeSerialPort
+                  ? `Printer Terhubung: ${activeBtDevice?.name || printerConnectedName || "Thermal"} (Siap Cetak Otomatis Tanpa Pop-Up)`
+                  : "Sambungkan Printer Thermal (Bluetooth / USB) agar kwitansi langsung cetak tanpa pop-up"
+              }
+            >
+              <span className="material-symbols-outlined text-lg">print</span>
+              <span
+                className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full ring-2 ring-white ${
+                  activeBtDevice || activeSerialPort ? "bg-emerald-600 animate-pulse" : "bg-rose-500"
+                }`}
+              />
             </button>
 
             {/* Layar Penuh (Fullscreen Kiosk Mode) */}
@@ -6257,6 +6382,214 @@ export function PosWorkspace({
                   </div>
                 )}
               <p className="text-[8.5px] text-gray-600 mt-0.5">Sistem POS didukung oleh Keivo</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL KONEKSI PRINTER THERMAL KASIR (CETAK OTOMATIS)
+         ======================================================== */}
+      {isPrinterModalOpen && (
+        <div
+          id="modal-printer-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsPrinterModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+        >
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#003629] text-white flex items-center justify-center shadow-xs">
+                  <span className="material-symbols-outlined text-2xl">print</span>
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900 tracking-tight">
+                    Koneksi Printer Thermal Kasir
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Cetak kwitansi otomatis tanpa pop-up dialog browser
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPrinterModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-200/70 hover:bg-slate-300 text-slate-600 flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 flex flex-col gap-5 overflow-y-auto max-h-[75vh]">
+              {/* Status Banner */}
+              {activeBtDevice || activeSerialPort ? (
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-3">
+                  <span className="material-symbols-outlined text-emerald-600 text-2xl shrink-0 mt-0.5">
+                    check_circle
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm text-emerald-950">
+                      Printer Thermal Terhubung &amp; Siap
+                    </p>
+                    <p className="text-xs text-emerald-800 font-mono mt-0.5 truncate">
+                      {activeBtDevice ? `[Bluetooth] ${activeBtDevice.name || "Perangkat Bluetooth"}` : `[USB] ${printerConnectedName || "USB Thermal Port"}`}
+                    </p>
+                    <p className="text-[11px] text-emerald-700 mt-1">
+                      Kwitansi akan langsung dicetak otomatis ke kertas thermal saat pembayaran dikonfirmasi tanpa memunculkan pop-up browser.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3">
+                  <span className="material-symbols-outlined text-amber-600 text-2xl shrink-0 mt-0.5">
+                    warning
+                  </span>
+                  <div className="flex-1">
+                    <p className="font-bold text-sm text-amber-950">
+                      Printer Thermal Belum Terhubung
+                    </p>
+                    <p className="text-xs text-amber-800 mt-0.5">
+                      Hubungkan printer Bluetooth atau USB di bawah ini agar kwitansi langsung dicetak tanpa memunculkan dialog &quot;Save as PDF&quot;.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Pilihan Koneksi Printer */}
+              <div className="flex flex-col gap-3">
+                <label className="text-xs font-black uppercase text-slate-700 tracking-wider">
+                  Pilih Metode Koneksi
+                </label>
+
+                {/* Tombol 1: Bluetooth */}
+                <button
+                  type="button"
+                  onClick={handleConnectBtPrinter}
+                  disabled={isConnectingPrinter}
+                  className="p-4 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/30 flex items-center justify-between text-left transition-all cursor-pointer group shadow-2xs"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center transition-colors">
+                      <span className="material-symbols-outlined text-2xl">bluetooth</span>
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-slate-900">
+                        Printer Bluetooth (Nirkabel)
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Cocok untuk mini thermal printer 58mm / 80mm nirkabel
+                      </p>
+                    </div>
+                  </div>
+                  <span className="material-symbols-outlined text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all">
+                    chevron_right
+                  </span>
+                </button>
+
+                {/* Tombol 2: USB Cable */}
+                <button
+                  type="button"
+                  onClick={handleConnectUsbPrinter}
+                  disabled={isConnectingPrinter}
+                  className="p-4 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/30 flex items-center justify-between text-left transition-all cursor-pointer group shadow-2xs"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 group-hover:bg-purple-600 group-hover:text-white flex items-center justify-center transition-colors">
+                      <span className="material-symbols-outlined text-2xl">usb</span>
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-slate-900">
+                        Printer USB (Kabel)
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Cocok untuk printer thermal USB kabel di Laptop / Komputer
+                      </p>
+                    </div>
+                  </div>
+                  <span className="material-symbols-outlined text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all">
+                    chevron_right
+                  </span>
+                </button>
+              </div>
+
+              {/* Action Buttons jika sudah terhubung */}
+              {(activeBtDevice || activeSerialPort) && (
+                <div className="flex gap-2.5 pt-1 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={handleTestPrintThermal}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                  >
+                    <span className="material-symbols-outlined text-base">print</span>
+                    <span>Cetak Tes Struk</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDisconnectPrinter}
+                    className="py-2.5 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                  >
+                    <span className="material-symbols-outlined text-base">link_off</span>
+                    <span>Putuskan</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Pengaturan Buka Pop-Up Browser */}
+              <div className="pt-3 border-t border-slate-100 flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="chk-auto-browser-print"
+                  checked={Boolean(settings.autoPrintBrowserDialog)}
+                  onChange={async (e) => {
+                    const checked = e.target.checked;
+                    await updateSettings({ autoPrintBrowserDialog: checked });
+                    showToast(
+                      checked
+                        ? "Dialog print browser diaktifkan saat printer thermal tidak terhubung."
+                        : "Dialog print browser dinonaktifkan. Tidak akan ada pop-up Save as PDF yang muncul.",
+                      "info"
+                    );
+                  }}
+                  className="mt-1 w-4 h-4 rounded text-[#003629] focus:ring-[#003629] cursor-pointer"
+                />
+                <label htmlFor="chk-auto-browser-print" className="text-xs text-slate-700 cursor-pointer">
+                  <span className="font-bold text-slate-900 block">
+                    Buka Dialog Print Browser jika printer thermal tidak terhubung
+                  </span>
+                  <span className="text-[11px] text-slate-500 leading-normal block mt-0.5">
+                    Biarkan tidak dicentang (direkomendasikan) agar kasir tidak terganggu oleh pop-up &quot;Save as PDF&quot; browser saat menyelesaikan transaksi.
+                  </span>
+                </label>
+              </div>
+
+              {/* Edukasi Kiosk Printing */}
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex flex-col gap-1">
+                <p className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-base text-amber-600">tips_and_updates</span>
+                  <span>Tips Cetak Tanpa Pop-Up untuk Driver Printer Laptop</span>
+                </p>
+                <p className="text-[11px] leading-relaxed">
+                  Jika Anda menggunakan printer USB/AirPrint yang terpasang via driver sistem komputer dan ingin Chrome mencetak tanpa pop-up dialog, jalankan Google Chrome dengan mode Kiosk:
+                </p>
+                <code className="text-[10px] bg-white p-1.5 rounded border border-slate-200 font-mono text-slate-800 break-all select-all">
+                  google-chrome --kiosk-printing https://keivo-pos.vercel.app/#pos
+                </code>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsPrinterModalOpen(false)}
+                className="py-2 px-5 rounded-xl bg-[#003629] hover:bg-[#00261d] text-white font-bold text-xs cursor-pointer shadow-xs transition-all"
+              >
+                Selesai &amp; Tutup
+              </button>
             </div>
           </div>
         </div>

@@ -84,6 +84,11 @@ interface RestaurantContextType {
   // Active Bluetooth printer device reference (Web Bluetooth API)
   activeBtDevice: BluetoothDevice | null;
   setActiveBtDevice: (device: BluetoothDevice | null) => void;
+  // Active USB / Serial thermal printer port (Web Serial API)
+  activeSerialPort: any | null;
+  setActiveSerialPort: (port: any | null) => void;
+  printerConnectedName: string;
+  setPrinterConnectedName: (name: string) => void;
 }
 
 const RestaurantContext = createContext<RestaurantContextType>({
@@ -111,14 +116,20 @@ const RestaurantContext = createContext<RestaurantContextType>({
   deletePrinter: () => {},
   activeBtDevice: null,
   setActiveBtDevice: () => {},
+  activeSerialPort: null,
+  setActiveSerialPort: () => {},
+  printerConnectedName: "",
+  setPrinterConnectedName: () => {},
 });
 
 export function RestaurantProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<RestaurantSettings>(DEFAULT_SETTINGS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Active Bluetooth printer device (Web Bluetooth)
+  // Active Bluetooth & USB Serial thermal printer devices
   const [activeBtDevice, setActiveBtDevice] = useState<BluetoothDevice | null>(null);
+  const [activeSerialPort, setActiveSerialPort] = useState<any | null>(null);
+  const [printerConnectedName, setPrinterConnectedName] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
 
   // Users & Active User State
@@ -191,6 +202,38 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
       } catch (e) {
         // ignore
       }
+    }
+
+    // Auto-reconnect Web Bluetooth printer if previously granted by user
+    if (typeof navigator !== "undefined" && navigator.bluetooth && navigator.bluetooth.getDevices) {
+      navigator.bluetooth.getDevices().then(async (devices) => {
+        if (devices.length > 0) {
+          const dev = devices[0];
+          try {
+            if (!dev.gatt?.connected) {
+              await dev.gatt?.connect();
+            }
+            setActiveBtDevice(dev);
+            setPrinterConnectedName(dev.name || "Printer Bluetooth");
+          } catch (err) {
+            console.log("Auto-connect to paired BT printer:", err);
+          }
+        }
+      }).catch(() => {});
+    }
+
+    // Auto-reconnect Web Serial (USB) printer if previously granted by user
+    if (typeof navigator !== "undefined" && "serial" in navigator) {
+      (navigator as any).serial.getPorts().then(async (ports: any[]) => {
+        if (ports && ports.length > 0) {
+          const port = ports[0];
+          try {
+            await port.open({ baudRate: 9600 });
+          } catch {}
+          setActiveSerialPort(port);
+          setPrinterConnectedName("Printer USB Thermal");
+        }
+      }).catch(() => {});
     }
 
     // Ground truth from backend API
@@ -507,6 +550,10 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
         deletePrinter,
         activeBtDevice,
         setActiveBtDevice,
+        activeSerialPort,
+        setActiveSerialPort,
+        printerConnectedName,
+        setPrinterConnectedName,
       }}
     >
       {children}

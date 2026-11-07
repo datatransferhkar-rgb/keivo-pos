@@ -38,6 +38,7 @@ export interface RestaurantSettings {
   taxRate?: number;
   serviceChargeEnabled?: boolean;
   serviceChargeRate?: number;
+  autoPrintBrowserDialog?: boolean;
   printers?: PrinterConfig[];
   // Akun Media Sosial Restoran (Branding Struk & QR Meja)
   instagram?: string;
