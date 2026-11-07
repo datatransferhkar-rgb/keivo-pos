@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
-
 // Helper to format order number
 function generateOrderNumber(): string {
   const rand = Math.floor(1000 + Math.random() * 9000);

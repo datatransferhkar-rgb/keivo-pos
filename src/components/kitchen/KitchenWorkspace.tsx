@@ -165,6 +165,7 @@ export function KitchenWorkspace({ orders, onNavigateHome, onUpdateOrderStatus }
 
   // Fullscreen kiosk state
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showIosFullscreenGuide, setShowIosFullscreenGuide] = useState(false);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -180,18 +181,34 @@ export function KitchenWorkspace({ orders, onNavigateHome, onUpdateOrderStatus }
 
   const handleToggleFullscreen = async () => {
     try {
+      const isIOS =
+        typeof navigator !== "undefined" &&
+        (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) &&
+        !(window as any).MSStream;
+
       if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
         const docEl = document.documentElement as any;
-        if (docEl.requestFullscreen) await docEl.requestFullscreen();
-        else if (docEl.webkitRequestFullscreen) await docEl.webkitRequestFullscreen();
-        setIsFullscreen(true);
+        if (docEl.requestFullscreen) {
+          await docEl.requestFullscreen();
+          setIsFullscreen(true);
+        } else if (docEl.webkitRequestFullscreen) {
+          await docEl.webkitRequestFullscreen();
+          setIsFullscreen(true);
+        } else if (isIOS) {
+          setShowIosFullscreenGuide(true);
+        } else {
+          setIsFullscreen((prev) => !prev);
+        }
       } else {
-        if (document.exitFullscreen) await document.exitFullscreen();
-        else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen();
+        const doc = document as any;
+        if (doc.exitFullscreen) await doc.exitFullscreen();
+        else if (doc.webkitExitFullscreen) await doc.webkitExitFullscreen();
         setIsFullscreen(false);
       }
     } catch (e) {
-      // ignore
+      console.log("Fullscreen request notice:", e);
+      setShowIosFullscreenGuide(true);
     }
   };
 
@@ -545,7 +562,7 @@ export function KitchenWorkspace({ orders, onNavigateHome, onUpdateOrderStatus }
   }, [productsList, stockCategoryFilter, stockSearchQuery]);
 
   return (
-    <div className="h-screen w-full flex flex-col bg-surface-container-high font-body-md text-on-surface overflow-hidden select-none">
+    <div className="fixed inset-0 w-full h-[100dvh] max-h-[100dvh] flex flex-col bg-surface-container-high font-body-md text-on-surface overflow-hidden overscroll-none select-none">
       {/* ========================================================================= */}
       {/* 1. KDS Fixed Header Bar (Minimalis & Clean dengan Icon Toolbar seperti POS) */}
       {/* ========================================================================= */}
@@ -769,7 +786,7 @@ export function KitchenWorkspace({ orders, onNavigateHome, onUpdateOrderStatus }
           </div>
 
           {/* Column Content: Scrollable Tickets Antrian Menunggu */}
-          <div className="flex-1 overflow-y-auto p-2.5 space-y-2 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-2.5 space-y-2 custom-scrollbar overscroll-contain">
             {queueWaitingOrders.map((order, idx) => {
               const channelStyle = getChannelStyle(order.channel, order.channelLabel);
               const totalItemsCount = order.items.reduce((s, it) => s + (it.qty || 1), 0);
@@ -894,7 +911,7 @@ export function KitchenWorkspace({ orders, onNavigateHome, onUpdateOrderStatus }
           </div>
 
           {/* Column Content: 1 BARIS 4 KARTU ANTRIAN CHECKLIST (GRID COLS 4) */}
-          <div className="flex-1 min-h-0 p-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 overflow-hidden">
+          <div className="flex-1 min-h-0 p-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 overflow-hidden">
             {/* RENDER 4 SLOTS (Slots 0 to 3) */}
             {[0, 1, 2, 3].map((slotIdx) => {
               const order = cookingChecklistOrders[slotIdx];
@@ -1022,7 +1039,7 @@ export function KitchenWorkspace({ orders, onNavigateHome, onUpdateOrderStatus }
                   )}
 
                   {/* Point 3: Inner Scrollable Checklist dengan Catatan Per Menu */}
-                  <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-1.5 custom-scrollbar mb-2">
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-1.5 custom-scrollbar mb-2 overscroll-contain">
                     {order.items.map((item, itemIdx) => {
                       const isChecked = currentCheckedIndices.includes(itemIdx);
                       return (
@@ -1533,6 +1550,70 @@ export function KitchenWorkspace({ orders, onNavigateHome, onUpdateOrderStatus }
                 Tutup
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL PANDUAN FULLSCREEN / KIOSK IPAD (IOS SAFARI)
+         ======================================================== */}
+      {showIosFullscreenGuide && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setShowIosFullscreenGuide(false)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col gap-4 text-slate-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-2xl">tablet_mac</span>
+              </div>
+              <div>
+                <h3 className="font-black text-base text-slate-900 leading-tight">
+                  Mode Kiosk Layar Penuh di iPad
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Jalankan Kitchen Display tanpa bilah alamat browser Safari
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2.5 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs text-slate-700">
+              <div className="flex items-start gap-2.5">
+                <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-900 font-black flex items-center justify-center shrink-0 text-xs">
+                  1
+                </span>
+                <span className="pt-0.5 leading-relaxed">
+                  Tekan tombol <strong>Bagikan (Share / <span className="material-symbols-outlined text-sm align-middle">ios_share</span>)</strong> di bilah atas Safari iPad.
+                </span>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-900 font-black flex items-center justify-center shrink-0 text-xs">
+                  2
+                </span>
+                <span className="pt-0.5 leading-relaxed">
+                  Gulir ke bawah dan pilih menu <strong>&apos;Tambah ke Layar Utama&apos; (Add to Home Screen)</strong>.
+                </span>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-900 font-black flex items-center justify-center shrink-0 text-xs">
+                  3
+                </span>
+                <span className="pt-0.5 leading-relaxed">
+                  Buka dari ikon di Home Screen iPad. Layar Kitchen akan otomatis berjalan <strong>100% Layar Penuh (Fullscreen Kiosk)</strong> tanpa bilah Safari dan anti scroll!
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowIosFullscreenGuide(false)}
+              className="w-full py-3 rounded-xl bg-slate-900 hover:bg-black text-white font-black text-xs transition-colors cursor-pointer"
+            >
+              Saya Mengerti
+            </button>
           </div>
         </div>
       )}
