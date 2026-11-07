@@ -180,8 +180,25 @@ export function buildReceiptEscPos(
 
   order.items.forEach((it) => {
     const subtotal = it.price * it.qty;
-    lines.push(`${it.qty}x ${it.name}`);
-    lines.push(`   ${formatCurrency(subtotal).padStart(20)}`);
+    const priceStr = formatCurrency(subtotal);
+    const qtyPrefix = `${it.qty}x `;
+    const maxNameLen = 32 - priceStr.length - 1 - qtyPrefix.length;
+
+    if (it.name.length <= maxNameLen) {
+      // Pas dalam 1 baris sejajar (32 kolom)
+      const itemPart = `${qtyPrefix}${it.name}`;
+      const spaces = Math.max(1, 32 - itemPart.length - priceStr.length);
+      lines.push(`${itemPart}${" ".repeat(spaces)}${priceStr}`);
+    } else {
+      // Nama menu panjang: potong rapi di baris 1 bersama harga, sisanya di baris 2
+      const firstLineName = it.name.slice(0, maxNameLen);
+      const restName = it.name.slice(maxNameLen);
+      const itemPart = `${qtyPrefix}${firstLineName}`;
+      const spaces = Math.max(1, 32 - itemPart.length - priceStr.length);
+      lines.push(`${itemPart}${" ".repeat(spaces)}${priceStr}`);
+      lines.push(`   ${restName}`);
+    }
+
     if (it.selectedAddons && it.selectedAddons.length > 0) {
       it.selectedAddons.forEach((add) => {
         lines.push(`   + ${add.name}`);

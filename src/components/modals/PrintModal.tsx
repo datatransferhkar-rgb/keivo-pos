@@ -176,24 +176,37 @@ export function PrintModal({
                 )}
               </div>
 
-              {/* Items */}
-              <div className="space-y-1.5 border-b border-dashed pb-2">
-                {order.items.map((it, idx) => (
-                  <div key={idx} className="flex justify-between items-start">
-                    <div className="flex-1 pr-2">
-                      <span className="font-bold">{it.qty}x</span> {it.name}
-                      {it.selectedAddons && it.selectedAddons.length > 0 && (
-                        <div className="pl-3 text-[10px] text-gray-600">
-                          {it.selectedAddons.map((add, aIdx) => (
-                            <span key={aIdx} className="block">+ {add.name}</span>
-                          ))}
-                        </div>
-                      )}
-                      {it.note && <span className="block text-[10px] text-gray-500 italic">({it.note})</span>}
-                    </div>
-                    <span className="font-semibold">{formatCurrency(it.price * it.qty)}</span>
-                  </div>
-                ))}
+              {/* Items: Table Format Sejajar */}
+              <div className="border-b border-dashed pb-2">
+                <table className="w-full text-[10px] border-collapse leading-tight">
+                  <tbody>
+                    {order.items.map((it, idx) => (
+                      <tr key={idx} className="align-top">
+                        <td className="w-5 pr-1 py-0.5 font-bold text-black align-top shrink-0">
+                          {it.qty}x
+                        </td>
+                        <td className="pr-1 py-0.5 text-black align-top">
+                          <span className="font-bold">{it.name}</span>
+                          {it.selectedAddons && it.selectedAddons.length > 0 && (
+                            <div className="text-[9px] text-gray-600 font-normal mt-0.5">
+                              {it.selectedAddons.map((add, aIdx) => (
+                                <span key={aIdx} className="block">+ {add.name}</span>
+                              ))}
+                            </div>
+                          )}
+                          {it.note && (
+                            <div className="text-[9px] text-gray-500 italic font-normal mt-0.5">
+                              ({it.note})
+                            </div>
+                          )}
+                        </td>
+                        <td className="text-right py-0.5 pl-1 font-bold whitespace-nowrap text-black align-top shrink-0">
+                          {formatCurrency(it.price * it.qty)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
               {/* Totals */}

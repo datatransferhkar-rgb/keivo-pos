@@ -292,10 +292,13 @@
     width: 58mm !important;
     max-width: 58mm !important;
     margin: 0 !important;
-    padding: 2mm !important;
+    padding: 1.5mm !important;
     border: none !important;
     background: #ffffff !important;
     color: #000000 !important;
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Courier New", monospace !important;
   }
   #table-qr-print-area {
     display: block !important;

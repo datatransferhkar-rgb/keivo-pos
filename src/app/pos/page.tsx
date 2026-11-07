@@ -160,23 +160,6 @@ export default function PosPage() {
     } catch (err) {
       console.error("Failed to update payment status:", err);
     }
-
-    // Open print receipt modal
-    const updatedOrder = orders.find((o) => o.id === orderId) || orderData;
-    if (updatedOrder) {
-      setPrintModalState({
-        isOpen: true,
-        type: "receipt",
-        order: {
-          ...updatedOrder,
-          paymentStatus: "paid",
-          paymentNote:
-            method === "cash"
-              ? `Uang Pas / Kembali Rp${change.toLocaleString("id-ID")}`
-              : undefined,
-        },
-      });
-    }
   };
 
   const handlePrintTicket = (order: OrderData) => {

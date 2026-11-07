@@ -1061,7 +1061,7 @@ export function PosWorkspace({
         onAddNewOrder(savedOrder, true);
       }
 
-      if (onConfirmDirectPayment && method === "cash") {
+      if (onConfirmDirectPayment) {
         onConfirmDirectPayment(savedOrder.id, method, effectiveCash, changeAmount, savedOrder);
       }
 
@@ -2434,7 +2434,7 @@ export function PosWorkspace({
 
       {/* Toast Alert Notification */}
       {toast.show && (
-        <div className="fixed bottom-6 right-6 z-50 animate-bounce">
+        <div className="fixed bottom-6 left-6 z-50 animate-bounce max-w-sm">
           <div className={`px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 text-xs font-bold border ${toast.type === "error"
               ? "bg-rose-950 text-white border-rose-400/50"
               : "bg-[#003629] text-white border-[#baeed9]/40"
@@ -6040,27 +6040,27 @@ export function PosWorkspace({
       {lastPrintedOrder && (
         <div
           id="pos-direct-printable-area"
-          className="hidden print:block font-mono text-xs text-black bg-white p-2"
+          className="hidden print:block font-mono text-[10px] leading-tight text-black bg-white p-1"
         >
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5 text-black">
             {/* Header Restoran */}
-            <div className="text-center border-b border-dashed border-black pb-2">
-              <h3 className="font-bold text-sm uppercase tracking-wide">
+            <div className="text-center border-b border-dashed border-black pb-1.5">
+              <h3 className="font-black text-xs uppercase tracking-wide text-black">
                 {settings.restaurantName || "PAWON NUSANTARA"}
               </h3>
               {settings.branchName && (
-                <p className="text-[11px] text-gray-700">{settings.branchName}</p>
+                <p className="text-[10px] text-black font-semibold mt-0.5">{settings.branchName}</p>
               )}
               {settings.address && (
-                <p className="text-[10px] text-gray-600">{settings.address}</p>
+                <p className="text-[9px] text-gray-700 leading-tight mt-0.5">{settings.address}</p>
               )}
               {settings.phone && (
-                <p className="text-[10px] text-gray-600">Telp: {settings.phone}</p>
+                <p className="text-[9px] text-gray-700">Telp: {settings.phone}</p>
               )}
             </div>
 
             {/* Meta Transaksi */}
-            <div className="flex flex-col gap-0.5 text-[11px] border-b border-dashed border-black pb-2">
+            <div className="flex flex-col gap-0.5 text-[9.5px] border-b border-dashed border-black pb-1.5 text-black">
               <div className="flex justify-between">
                 <span>No. Transaksi:</span>
                 <span className="font-bold">{lastPrintedOrder.orderNumber}</span>
@@ -6082,45 +6082,48 @@ export function PosWorkspace({
                 <span>{lastPrintedOrder.channelLabel}</span>
               </div>
               {lastPrintedOrder.customerTier && (
-                <div className="flex justify-between items-center py-0.5 px-1 mt-0.5 rounded bg-gray-100 text-black font-bold">
+                <div className="flex justify-between items-center py-0.5 px-1 mt-0.5 rounded bg-gray-100 text-black font-bold text-[9px]">
                   <span>Pelanggan / Member:</span>
-                  <span className="uppercase text-[10px]">
-                    ★ {lastPrintedOrder.customerTier}
-                  </span>
+                  <span className="uppercase">★ {lastPrintedOrder.customerTier}</span>
                 </div>
               )}
             </div>
 
-            {/* Daftar Menu Pesanan */}
-            <div className="space-y-1.5 border-b border-dashed border-black pb-2 text-[11px]">
-              {lastPrintedOrder.items.map((it, idx) => (
-                <div key={idx} className="flex justify-between items-start">
-                  <div className="flex-1 pr-2">
-                    <span className="font-bold">{it.qty}x</span> {it.name}
-                    {it.selectedAddons && it.selectedAddons.length > 0 && (
-                      <div className="text-[10px] text-gray-700 pl-1 font-medium">
-                        {it.selectedAddons.map((add, aIdx) => (
-                          <span key={aIdx} className="block">
-                            + {add.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {it.note && (
-                      <span className="block text-[10px] text-gray-600 italic">
-                        ({it.note})
-                      </span>
-                    )}
-                  </div>
-                  <span className="font-semibold shrink-0">
-                    {formatCurrency(it.price * it.qty)}
-                  </span>
-                </div>
-              ))}
+            {/* Daftar Menu Pesanan: Table Format dengan Item & Harga Berada Pada Baris yang Sama */}
+            <div className="border-b border-dashed border-black pb-1.5">
+              <table className="w-full text-[9.5px] border-collapse leading-tight">
+                <tbody>
+                  {lastPrintedOrder.items.map((it, idx) => (
+                    <tr key={idx} className="align-top">
+                      <td className="w-5 pr-1 py-0.5 font-bold text-black align-top shrink-0">
+                        {it.qty}x
+                      </td>
+                      <td className="pr-1 py-0.5 text-black align-top">
+                        <span className="font-bold">{it.name}</span>
+                        {it.selectedAddons && it.selectedAddons.length > 0 && (
+                          <div className="text-[8.5px] text-gray-700 pl-1 font-normal mt-0.5">
+                            {it.selectedAddons.map((add, aIdx) => (
+                              <span key={aIdx} className="block">+ {add.name}</span>
+                            ))}
+                          </div>
+                        )}
+                        {it.note && (
+                          <div className="text-[8.5px] text-gray-600 italic font-normal pl-1 mt-0.5">
+                            ({it.note})
+                          </div>
+                        )}
+                      </td>
+                      <td className="text-right py-0.5 pl-1 font-bold whitespace-nowrap text-black align-top shrink-0">
+                        {formatCurrency(it.price * it.qty)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
             {/* Total Pembayaran */}
-            <div className="flex flex-col gap-1 text-[11px] border-b border-dashed border-black pb-2">
+            <div className="flex flex-col gap-0.5 text-[9.5px] border-b border-dashed border-black pb-1.5 text-black">
               {(() => {
                 const itemsSubtotal = lastPrintedOrder.subtotal || lastPrintedOrder.items.reduce((s, it) => s + it.price * it.qty, 0);
                 const hasDiscount = Boolean(lastPrintedOrder.discountAmount && lastPrintedOrder.discountAmount > 0);
@@ -6128,48 +6131,48 @@ export function PosWorkspace({
                 return (
                   <>
                     {hasTaxOrService && (
-                      <div className="flex justify-between text-gray-700">
+                      <div className="flex justify-between text-gray-800">
                         <span>Subtotal:</span>
                         <span>{formatCurrency(itemsSubtotal)}</span>
                       </div>
                     )}
                     {hasDiscount && (
-                      <div className="flex justify-between font-bold text-red-700">
+                      <div className="flex justify-between font-bold text-black">
                         <span>Diskon ({lastPrintedOrder.discountName || "Promo"}):</span>
                         <span>-{formatCurrency(lastPrintedOrder.discountAmount || 0)}</span>
                       </div>
                     )}
                     {lastPrintedOrder.promoCode && (
-                      <div className="flex justify-between font-bold text-gray-900">
+                      <div className="flex justify-between font-bold text-black">
                         <span>Kode Promo:</span>
-                        <span className="font-mono">{lastPrintedOrder.promoCode}</span>
+                        <span>{lastPrintedOrder.promoCode}</span>
                       </div>
                     )}
                     {settings.taxEnabled && (settings.taxRate ?? 0) > 0 && hasTaxOrService && (
-                      <div className="flex justify-between text-gray-700">
+                      <div className="flex justify-between text-gray-800">
                         <span>Pajak Restoran PB1 ({settings.taxRate}%):</span>
                         <span>{formatCurrency(lastPrintedOrder.taxAmount || Math.round((itemsSubtotal - (lastPrintedOrder.discountAmount || 0)) * ((settings.taxRate ?? 0) / 100)))}</span>
                       </div>
                     )}
                     {settings.serviceChargeEnabled && (settings.serviceChargeRate ?? 0) > 0 && hasTaxOrService && (
-                      <div className="flex justify-between text-gray-700">
+                      <div className="flex justify-between text-gray-800">
                         <span>Biaya Layanan ({settings.serviceChargeRate}%):</span>
                         <span>{formatCurrency(Math.round((itemsSubtotal - (lastPrintedOrder.discountAmount || 0)) * ((settings.serviceChargeRate ?? 0) / 100)))}</span>
                       </div>
                     )}
-                    <div className="flex justify-between font-bold text-sm pt-1">
+                    <div className="flex justify-between font-black text-[11px] pt-1 border-t border-dotted border-black/50 text-black">
                       <span>TOTAL:</span>
                       <span>{formatCurrency(lastPrintedOrder.total)}</span>
                     </div>
                   </>
                 );
               })()}
-              <div className="flex justify-between">
+              <div className="flex justify-between pt-0.5">
                 <span>Status:</span>
-                <span className="font-bold uppercase text-emerald-800">LUNAS</span>
+                <span className="font-black uppercase text-black">LUNAS</span>
               </div>
               {lastPrintedOrder.paymentNote && (
-                <div className="flex justify-between text-[10px] text-gray-700">
+                <div className="flex justify-between text-[9px] text-gray-700">
                   <span>Keterangan:</span>
                   <span>{lastPrintedOrder.paymentNote}</span>
                 </div>
@@ -6182,17 +6185,17 @@ export function PosWorkspace({
               const nextCouponCode = tier === "vip" ? "VIPHEMAT20" : tier === "gold" ? "GOLDHEMAT15" : "HEMAT10";
               const nextCouponDisc = tier === "vip" ? "Diskon 20% (Maks Rp50.000)" : tier === "gold" ? "Diskon 15% (Maks Rp35.000)" : "Diskon 10% (Maks Rp25.000)";
               return (
-                <div className="my-1.5 p-2 rounded border-2 border-dashed border-black text-center flex flex-col items-center gap-0.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider">
+                <div className="my-1 p-1.5 rounded border border-dashed border-black text-center flex flex-col items-center gap-0.5">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-black">
                     ★ KUPON SPESIAL MEMBER RESTO ★
                   </span>
-                  <div className="px-2 py-0.5 border border-black font-mono font-black text-xs tracking-wider">
+                  <div className="px-1.5 py-0.5 border border-black font-mono font-black text-[10px] tracking-wider text-black">
                     {nextCouponCode}
                   </div>
-                  <p className="text-[10px] font-bold">
+                  <p className="text-[9px] font-bold text-black">
                     {nextCouponDisc}
                   </p>
-                  <p className="text-[9px] italic">
+                  <p className="text-[8px] italic text-gray-700">
                     Tunjukkan struk ini pada kasir untuk kunjungan berikutnya!
                   </p>
                 </div>
@@ -6200,13 +6203,13 @@ export function PosWorkspace({
             })()}
 
             {/* Footer Struk */}
-            <div className="text-center text-[10px] text-gray-600 pt-1">
-              <p>{settings.receiptFooter || "Terima kasih atas kunjungan Anda!"}</p>
+            <div className="text-center text-[9px] text-gray-700 pt-0.5 leading-tight flex flex-col gap-0.5">
+              <p className="font-semibold text-black">{settings.receiptFooter || "Terima kasih atas kunjungan Anda!"}</p>
               {/* Social media handles */}
               {((settings.showInstagram && settings.instagram) ||
                 (settings.showFacebook && settings.facebook) ||
                 (settings.showTiktok && settings.tiktok)) && (
-                  <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 mt-1 pt-1 border-t border-dashed border-gray-400 text-[9px] font-semibold text-gray-700">
+                  <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 mt-0.5 pt-0.5 border-t border-dashed border-gray-400 text-[8.5px] font-semibold text-gray-700">
                     {settings.showInstagram && settings.instagram && (
                       <span>IG: {settings.instagram}</span>
                     )}
@@ -6218,7 +6221,7 @@ export function PosWorkspace({
                     )}
                   </div>
                 )}
-              <p className="mt-1 text-[9px] text-gray-500">Sistem POS didukung oleh Keivo</p>
+              <p className="text-[8px] text-gray-500 mt-0.5">Sistem POS didukung oleh Keivo</p>
             </div>
           </div>
         </div>
