@@ -4,8 +4,9 @@ import React, { useState, useMemo } from "react";
 import { formatCurrency } from "@/lib/formatters";
 import { OrderData } from "@/types/pos";
 import { useRestaurant } from "@/context/RestaurantContext";
+import { DEFAULT_CATALOG_PRODUCTS } from "@/lib/catalogData";
 
-type TimeHorizon = "today" | "weekly" | "monthly" | "all";
+type TimeHorizon = "today" | "weekly" | "monthly" | "all" | "custom";
 type ChartViewMode = "spline" | "bars";
 
 interface SalesInfographicDashboardProps {
@@ -36,6 +37,15 @@ export function SalesInfographicDashboard({
 
   // Controls & Filters
   const [timeHorizon, setTimeHorizon] = useState<TimeHorizon>("weekly");
+  const [customStartDate, setCustomStartDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toLocaleDateString("en-CA");
+  });
+  const [customEndDate, setCustomEndDate] = useState<string>(() => {
+    return new Date().toLocaleDateString("en-CA");
+  });
+
   const [chartViewMode, setChartViewMode] = useState<ChartViewMode>("spline");
   const [activeChartIndex, setActiveChartIndex] = useState<number | null>(null);
 
@@ -46,47 +56,87 @@ export function SalesInfographicDashboard({
   >("all");
   const [liveVisibleCount, setLiveVisibleCount] = useState(8);
 
-  // 1. FILTER ORDERS BY TIME HORIZON
+  // 1. FILTER ORDERS BY TIME HORIZON & CUSTOM DATE RANGE
   const filteredOrders = useMemo(() => {
     if (!orders || orders.length === 0) return [];
 
     const now = new Date();
-    // Anchor to today (or latest transaction date in DB, around end of Oct 2026)
-    const latestOrderDate = orders[0]?.createdAt ? new Date(orders[0].createdAt) : now;
+    const todayStr = now.toLocaleDateString("en-CA");
+
+    const getOrderDateStr = (createdAt?: string | Date) => {
+      if (!createdAt) return todayStr;
+      try {
+        const d = typeof createdAt === "string" ? new Date(createdAt) : createdAt;
+        if (isNaN(d.getTime())) return todayStr;
+        return d.toLocaleDateString("en-CA");
+      } catch {
+        return todayStr;
+      }
+    };
 
     if (timeHorizon === "all") return orders;
 
     if (timeHorizon === "today") {
-      // Same calendar day as latest order date
-      const targetDayStr = latestOrderDate.toISOString().slice(0, 10);
-      return orders.filter((o) => {
-        if (!o.createdAt) return true;
-        return o.createdAt.slice(0, 10) === targetDayStr;
-      });
+      const todayOrders = orders.filter((o) => getOrderDateStr(o.createdAt) === todayStr);
+      if (todayOrders.length > 0) return todayOrders;
+
+      // Fallback: use date of most recent order if no orders today
+      const latestOrder = orders.reduce((latest, curr) => {
+        const dCurr = curr.createdAt ? new Date(curr.createdAt).getTime() : 0;
+        const dLatest = latest.createdAt ? new Date(latest.createdAt).getTime() : 0;
+        return dCurr > dLatest ? curr : latest;
+      }, orders[0]);
+      const anchorDateStr = getOrderDateStr(latestOrder?.createdAt);
+      const matched = orders.filter((o) => getOrderDateStr(o.createdAt) === anchorDateStr);
+      return matched.length > 0 ? matched : orders;
     }
 
     if (timeHorizon === "weekly") {
-      // Past 7 days from latest order date
-      const sevenDaysAgo = new Date(latestOrderDate.getTime() - 7 * 24 * 60 * 60 * 1000);
-      return orders.filter((o) => {
-        if (!o.createdAt) return true;
-        return new Date(o.createdAt) >= sevenDaysAgo;
-      });
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const sevenDaysAgoStr = sevenDaysAgo.toLocaleDateString("en-CA");
+      const weeklyOrders = orders.filter((o) => getOrderDateStr(o.createdAt) >= sevenDaysAgoStr);
+      if (weeklyOrders.length > 0) return weeklyOrders;
+
+      const latestOrder = orders.reduce((latest, curr) => {
+        const dCurr = curr.createdAt ? new Date(curr.createdAt).getTime() : 0;
+        const dLatest = latest.createdAt ? new Date(latest.createdAt).getTime() : 0;
+        return dCurr > dLatest ? curr : latest;
+      }, orders[0]);
+      const anchorTime = latestOrder?.createdAt ? new Date(latestOrder.createdAt).getTime() : now.getTime();
+      const cutoff = new Date(anchorTime - 7 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA");
+      const matched = orders.filter((o) => getOrderDateStr(o.createdAt) >= cutoff);
+      return matched.length > 0 ? matched : orders;
     }
 
     if (timeHorizon === "monthly") {
-      // Same month & year
-      const targetMonth = latestOrderDate.getMonth();
-      const targetYear = latestOrderDate.getFullYear();
-      return orders.filter((o) => {
-        if (!o.createdAt) return true;
-        const d = new Date(o.createdAt);
-        return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgoStr = thirtyDaysAgo.toLocaleDateString("en-CA");
+      const monthlyOrders = orders.filter((o) => getOrderDateStr(o.createdAt) >= thirtyDaysAgoStr);
+      if (monthlyOrders.length > 0) return monthlyOrders;
+
+      const latestOrder = orders.reduce((latest, curr) => {
+        const dCurr = curr.createdAt ? new Date(curr.createdAt).getTime() : 0;
+        const dLatest = latest.createdAt ? new Date(latest.createdAt).getTime() : 0;
+        return dCurr > dLatest ? curr : latest;
+      }, orders[0]);
+      const anchorTime = latestOrder?.createdAt ? new Date(latestOrder.createdAt).getTime() : now.getTime();
+      const cutoff = new Date(anchorTime - 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA");
+      const matched = orders.filter((o) => getOrderDateStr(o.createdAt) >= cutoff);
+      return matched.length > 0 ? matched : orders;
+    }
+
+    if (timeHorizon === "custom") {
+      const matched = orders.filter((o) => {
+        const orderDate = getOrderDateStr(o.createdAt);
+        if (customStartDate && orderDate < customStartDate) return false;
+        if (customEndDate && orderDate > customEndDate) return false;
+        return true;
       });
+      return matched.length > 0 ? matched : orders;
     }
 
     return orders;
-  }, [orders, timeHorizon]);
+  }, [orders, timeHorizon, customStartDate, customEndDate]);
 
   // 2. DYNAMIC SUMMARY METRICS
   const summaryMetrics = useMemo(() => {
@@ -215,7 +265,7 @@ export function SalesInfographicDashboard({
     };
   }, [filteredOrders, orders]);
 
-  // 3. TOP 10 MENU BEST SELLER FROM REAL TRANSACTION ITEMS
+  // 3. TOP 10 MENU BEST SELLER (MEMASTIKAN 10 PRODUK TERLARIS SELALU TAMPIL)
   const top10MenuItems = useMemo(() => {
     const list = filteredOrders.length > 0 ? filteredOrders : orders;
     const itemMap: Record<
@@ -228,19 +278,32 @@ export function SalesInfographicDashboard({
       order.items.forEach((item) => {
         const key = item.name.trim();
         if (!itemMap[key]) {
-          // Categorization heuristic
           let cat = "Makanan Utama";
           const lower = key.toLowerCase();
-          if (lower.includes("es ") || lower.includes("teh") || lower.includes("jeruk") || lower.includes("kopi")) {
+          if (
+            lower.includes("es ") ||
+            lower.includes("teh") ||
+            lower.includes("jeruk") ||
+            lower.includes("kopi") ||
+            lower.includes("cendol")
+          ) {
             cat = "Minuman Segar";
-          } else if (lower.includes("gurame") || lower.includes("udang") || lower.includes("cumi")) {
-            cat = "Hidangan Laut / Ikan";
+          } else if (
+            lower.includes("gurame") ||
+            lower.includes("udang") ||
+            lower.includes("cumi") ||
+            lower.includes("ikan")
+          ) {
+            cat = "Seafood";
           } else if (lower.includes("sup") || lower.includes("soto") || lower.includes("kangkung")) {
             cat = "Sup & Sayur";
-          } else if (lower.includes("bebek")) {
-            cat = "Hidangan Bebek";
-          } else if (lower.includes("ayam")) {
-            cat = "Hidangan Ayam";
+          } else if (
+            lower.includes("mendoan") ||
+            lower.includes("tahu") ||
+            lower.includes("tempe") ||
+            lower.includes("pisang")
+          ) {
+            cat = "Camilan";
           }
 
           itemMap[key] = {
@@ -258,53 +321,264 @@ export function SalesInfographicDashboard({
       });
     });
 
-    const sorted = Object.values(itemMap).sort((a, b) => b.qty - a.qty || b.revenue - a.revenue);
-    const maxQty = sorted[0]?.qty || 1;
+    // Melengkapi hingga minimal 10 item menggunakan katalog jika belum mencukupi
+    DEFAULT_CATALOG_PRODUCTS.forEach((prod) => {
+      const key = prod.name.trim();
+      if (!itemMap[key]) {
+        itemMap[key] = {
+          name: prod.name,
+          category: prod.category || "Makanan Utama",
+          qty: 0,
+          revenue: 0,
+        };
+      }
+    });
 
-    return sorted.slice(0, 10).map((item, idx) => ({
+    const sorted = Object.values(itemMap).sort((a, b) => b.qty - a.qty || b.revenue - a.revenue);
+    const top10 = sorted.slice(0, 10);
+    const maxQty = Math.max(top10[0]?.qty || 1, 1);
+
+    return top10.map((item, idx) => ({
       rank: idx + 1,
       name: item.name,
       category: item.category,
       qty: item.qty,
       revenue: item.revenue,
-      percentage: Math.round((item.qty / maxQty) * 100),
+      percentage: Math.max(6, Math.round((item.qty / maxQty) * 100)),
     }));
   }, [filteredOrders, orders]);
 
-  // 4. CHART DATA COMPUTATION (DAILY TRENDS & CHANNELS)
+  // 4. CHART DATA COMPUTATION (DINAMIS MENYESUAIKAN HARI INI, MINGGUAN, BULANAN, SEMUA, DAN KUSTOM)
   const chartData = useMemo(() => {
-    const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
-    const fullDayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+    const list = filteredOrders.length > 0 ? filteredOrders : orders;
 
-    // Default 7 days representation
-    const daysMap: Record<
-      string,
-      {
-        dayKey: string;
-        label: string;
-        fullLabel: string;
-        dateStr: string;
-        dineIn: number;
-        takeaway: number;
-        ojol: number;
-        total: number;
-        orderCount: number;
+    // CASE 1: HARI INI (GRAFIK PER JAM: 08:00 s/d 22:00)
+    if (timeHorizon === "today") {
+      const hours = [8, 10, 12, 14, 16, 18, 20, 22];
+      const hoursMap: Record<number, any> = {};
+
+      hours.forEach((h) => {
+        const hourStr = `${h.toString().padStart(2, "0")}:00`;
+        const nextHourStr = `${(h + 2).toString().padStart(2, "0")}:00`;
+        hoursMap[h] = {
+          dayKey: `hour-${h}`,
+          label: hourStr,
+          fullLabel: `Pukul ${hourStr} - ${nextHourStr}`,
+          dateStr: "Hari Ini",
+          dineIn: 0,
+          takeaway: 0,
+          ojol: 0,
+          total: 0,
+          orderCount: 0,
+        };
+      });
+
+      list.forEach((o) => {
+        let hour = 12;
+        if (o.createdAt) {
+          try {
+            const d = new Date(o.createdAt);
+            if (!isNaN(d.getTime())) hour = d.getHours();
+          } catch {}
+        }
+        const bucket = Math.max(8, Math.min(22, Math.floor(hour / 2) * 2));
+        if (hoursMap[bucket]) {
+          const tot = o.total || 0;
+          hoursMap[bucket].total += tot;
+          hoursMap[bucket].orderCount += 1;
+          if (o.channel === "dine_in_qr") hoursMap[bucket].dineIn += tot;
+          else if (o.channel === "takeaway_walk_in") hoursMap[bucket].takeaway += tot;
+          else hoursMap[bucket].ojol += tot;
+        }
+      });
+
+      const points = Object.values(hoursMap);
+      const maxVal = Math.max(...points.map((p) => p.total), 500000);
+      const peakDay = points.reduce((prev, curr) => (curr.total > prev.total ? curr : prev), points[0]);
+
+      return {
+        points,
+        maxVal,
+        peakDay,
+        dailyAverage: Math.round(points.reduce((sum, p) => sum + p.total, 0) / points.length),
+        unitLabel: "jam",
+      };
+    }
+
+    // CASE 2: MINGGUAN (7 HARI TERAKHIR)
+    if (timeHorizon === "weekly") {
+      const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+      const fullDayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+      const daysMap: Record<string, any> = {};
+
+      const now = new Date();
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const dateKey = d.toLocaleDateString("en-CA");
+        const dayIdx = d.getDay();
+        daysMap[dateKey] = {
+          dayKey: dateKey,
+          label: dayNames[dayIdx],
+          fullLabel: `${fullDayNames[dayIdx]}, ${d.toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "short",
+          })}`,
+          dateStr: d.toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
+          dineIn: 0,
+          takeaway: 0,
+          ojol: 0,
+          total: 0,
+          orderCount: 0,
+        };
       }
-    > = {};
 
-    // Get 7 recent days anchor
-    const latestDate = orders[0]?.createdAt ? new Date(orders[0].createdAt) : new Date();
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(latestDate.getTime() - i * 24 * 60 * 60 * 1000);
-      const dateKey = d.toISOString().slice(0, 10);
-      const dayIdx = d.getDay();
-      daysMap[dateKey] = {
-        dayKey: dateKey,
-        label: dayNames[dayIdx],
-        fullLabel: `${fullDayNames[dayIdx]}, ${d.toLocaleDateString("id-ID", {
+      list.forEach((o) => {
+        if (!o.createdAt) return;
+        const dateKey = new Date(o.createdAt).toLocaleDateString("en-CA");
+        if (daysMap[dateKey]) {
+          const tot = o.total || 0;
+          daysMap[dateKey].total += tot;
+          daysMap[dateKey].orderCount += 1;
+          if (o.channel === "dine_in_qr") daysMap[dateKey].dineIn += tot;
+          else if (o.channel === "takeaway_walk_in") daysMap[dateKey].takeaway += tot;
+          else daysMap[dateKey].ojol += tot;
+        }
+      });
+
+      const points = Object.values(daysMap);
+      const maxVal = Math.max(...points.map((p) => p.total), 1000000);
+      const peakDay = points.reduce((prev, curr) => (curr.total > prev.total ? curr : prev), points[0]);
+
+      return {
+        points,
+        maxVal,
+        peakDay,
+        dailyAverage: Math.round(points.reduce((sum, p) => sum + p.total, 0) / points.length),
+        unitLabel: "hari",
+      };
+    }
+
+    // CASE 3: BULANAN (6 INTERVAL TANGGAL DALAM BULAN INI)
+    if (timeHorizon === "monthly") {
+      const buckets = [
+        { label: "Tgl 1-5", fullLabel: "Tanggal 1 - 5 Bulan Ini", start: 1, end: 5 },
+        { label: "Tgl 6-10", fullLabel: "Tanggal 6 - 10 Bulan Ini", start: 6, end: 10 },
+        { label: "Tgl 11-15", fullLabel: "Tanggal 11 - 15 Bulan Ini", start: 11, end: 15 },
+        { label: "Tgl 16-20", fullLabel: "Tanggal 16 - 20 Bulan Ini", start: 16, end: 20 },
+        { label: "Tgl 21-25", fullLabel: "Tanggal 21 - 25 Bulan Ini", start: 21, end: 25 },
+        { label: "Tgl 26-31", fullLabel: "Tanggal 26 - 31 Bulan Ini", start: 26, end: 31 },
+      ];
+
+      const points = buckets.map((b) => ({
+        dayKey: b.label,
+        label: b.label,
+        fullLabel: b.fullLabel,
+        dateStr: b.label,
+        dineIn: 0,
+        takeaway: 0,
+        ojol: 0,
+        total: 0,
+        orderCount: 0,
+      }));
+
+      list.forEach((o) => {
+        if (!o.createdAt) return;
+        const d = new Date(o.createdAt);
+        const dayOfMonth = d.getDate();
+        const bIdx = buckets.findIndex((b) => dayOfMonth >= b.start && dayOfMonth <= b.end);
+        if (bIdx !== -1) {
+          const tot = o.total || 0;
+          points[bIdx].total += tot;
+          points[bIdx].orderCount += 1;
+          if (o.channel === "dine_in_qr") points[bIdx].dineIn += tot;
+          else if (o.channel === "takeaway_walk_in") points[bIdx].takeaway += tot;
+          else points[bIdx].ojol += tot;
+        }
+      });
+
+      const maxVal = Math.max(...points.map((p) => p.total), 2000000);
+      const peakDay = points.reduce((prev, curr) => (curr.total > prev.total ? curr : prev), points[0]);
+
+      return {
+        points,
+        maxVal,
+        peakDay,
+        dailyAverage: Math.round(points.reduce((sum, p) => sum + p.total, 0) / points.length),
+        unitLabel: "periode",
+      };
+    }
+
+    // CASE 4: SEMUA (TREN BULANAN RIIL)
+    if (timeHorizon === "all") {
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+      const monthsMap: Record<string, any> = {};
+
+      const now = new Date();
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}`;
+        monthsMap[key] = {
+          dayKey: key,
+          label: monthNames[d.getMonth()],
+          fullLabel: `${monthNames[d.getMonth()]} ${d.getFullYear()}`,
+          dateStr: d.getFullYear().toString(),
+          dineIn: 0,
+          takeaway: 0,
+          ojol: 0,
+          total: 0,
+          orderCount: 0,
+        };
+      }
+
+      list.forEach((o) => {
+        if (!o.createdAt) return;
+        const d = new Date(o.createdAt);
+        const key = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}`;
+        if (monthsMap[key]) {
+          const tot = o.total || 0;
+          monthsMap[key].total += tot;
+          monthsMap[key].orderCount += 1;
+          if (o.channel === "dine_in_qr") monthsMap[key].dineIn += tot;
+          else if (o.channel === "takeaway_walk_in") monthsMap[key].takeaway += tot;
+          else monthsMap[key].ojol += tot;
+        }
+      });
+
+      const points = Object.values(monthsMap);
+      const maxVal = Math.max(...points.map((p) => p.total), 3000000);
+      const peakDay = points.reduce((prev, curr) => (curr.total > prev.total ? curr : prev), points[0]);
+
+      return {
+        points,
+        maxVal,
+        peakDay,
+        dailyAverage: Math.round(points.reduce((sum, p) => sum + p.total, 0) / points.length),
+        unitLabel: "bulan",
+      };
+    }
+
+    // CASE 5: KUSTOM (RENTANG TANGGAL TERPILIH)
+    const start = new Date(customStartDate || Date.now());
+    const end = new Date(customEndDate || Date.now());
+    const diffDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1);
+
+    const customDaysMap: Record<string, any> = {};
+    const maxPoints = Math.min(diffDays, 14);
+    const step = diffDays <= 14 ? 1 : Math.ceil(diffDays / 10);
+
+    for (let i = 0; i < maxPoints; i++) {
+      const d = new Date(start.getTime() + i * step * 24 * 60 * 60 * 1000);
+      if (d > end) break;
+      const key = d.toLocaleDateString("en-CA");
+      customDaysMap[key] = {
+        dayKey: key,
+        label: d.toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
+        fullLabel: d.toLocaleDateString("id-ID", {
+          weekday: "long",
           day: "numeric",
-          month: "short",
-        })}`,
+          month: "long",
+          year: "numeric",
+        }),
         dateStr: d.toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
         dineIn: 0,
         takeaway: 0,
@@ -314,31 +588,129 @@ export function SalesInfographicDashboard({
       };
     }
 
-    // Populate with real orders
-    orders.forEach((o) => {
+    list.forEach((o) => {
       if (!o.createdAt) return;
-      const dateKey = o.createdAt.slice(0, 10);
-      if (daysMap[dateKey]) {
+      const key = new Date(o.createdAt).toLocaleDateString("en-CA");
+      if (customDaysMap[key]) {
         const tot = o.total || 0;
-        daysMap[dateKey].total += tot;
-        daysMap[dateKey].orderCount += 1;
-        if (o.channel === "dine_in_qr") daysMap[dateKey].dineIn += tot;
-        else if (o.channel === "takeaway_walk_in") daysMap[dateKey].takeaway += tot;
-        else daysMap[dateKey].ojol += tot;
+        customDaysMap[key].total += tot;
+        customDaysMap[key].orderCount += 1;
+        if (o.channel === "dine_in_qr") customDaysMap[key].dineIn += tot;
+        else if (o.channel === "takeaway_walk_in") customDaysMap[key].takeaway += tot;
+        else customDaysMap[key].ojol += tot;
       }
     });
 
-    const list = Object.values(daysMap);
-    const maxVal = Math.max(...list.map((d) => d.total), 1000000);
-    const peakDay = list.reduce((prev, curr) => (curr.total > prev.total ? curr : prev), list[0]);
+    const points = Object.values(customDaysMap);
+    const maxVal = Math.max(...points.map((p) => p.total), 1000000);
+    const peakDay = points.reduce(
+      (prev, curr) => (curr.total > prev.total ? curr : prev),
+      points[0] || { fullLabel: "-", total: 0 }
+    );
 
     return {
-      points: list,
+      points: points.length > 0 ? points : [
+        {
+          dayKey: "empty",
+          label: "Data",
+          fullLabel: "Periode Dipilih",
+          dateStr: "-",
+          dineIn: 0,
+          takeaway: 0,
+          ojol: 0,
+          total: 0,
+          orderCount: 0,
+        },
+      ],
       maxVal,
       peakDay,
-      dailyAverage: Math.round(list.reduce((sum, d) => sum + d.total, 0) / list.length),
+      dailyAverage: Math.round(points.reduce((sum, p) => sum + p.total, 0) / Math.max(1, points.length)),
+      unitLabel: "hari",
     };
-  }, [orders]);
+  }, [filteredOrders, orders, timeHorizon, customStartDate, customEndDate]);
+
+  // 5. PEAK TIME & JAM SIBUK RESTORAN
+  const peakTimeData = useMemo(() => {
+    const list = filteredOrders.length > 0 ? filteredOrders : orders;
+
+    // Jam operasional restoran: 09:00 s/d 22:00 (14 jam)
+    const hours = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
+
+    const hourlyMap: Record<
+      number,
+      {
+        hour: number;
+        label: string;
+        timeRange: string;
+        orderCount: number;
+        revenue: number;
+        dineInCount: number;
+        takeawayCount: number;
+        ojolCount: number;
+        rushType: "lunch" | "dinner" | null;
+      }
+    > = {};
+
+    hours.forEach((h) => {
+      const isLunch = h >= 11 && h <= 13;
+      const isDinner = h >= 18 && h <= 20;
+      hourlyMap[h] = {
+        hour: h,
+        label: `${h.toString().padStart(2, "0")}:00`,
+        timeRange: `${h.toString().padStart(2, "0")}:00 - ${(h + 1).toString().padStart(2, "0")}:00`,
+        orderCount: 0,
+        revenue: 0,
+        dineInCount: 0,
+        takeawayCount: 0,
+        ojolCount: 0,
+        rushType: isLunch ? "lunch" : isDinner ? "dinner" : null,
+      };
+    });
+
+    list.forEach((order) => {
+      let h = 12;
+      if (order.createdAt) {
+        try {
+          const d = new Date(order.createdAt);
+          if (!isNaN(d.getTime())) h = d.getHours();
+        } catch {}
+      }
+      const clampedH = Math.max(9, Math.min(22, h));
+      if (hourlyMap[clampedH]) {
+        hourlyMap[clampedH].orderCount += 1;
+        hourlyMap[clampedH].revenue += order.total || 0;
+        if (order.channel === "dine_in_qr") hourlyMap[clampedH].dineInCount += 1;
+        else if (order.channel === "takeaway_walk_in") hourlyMap[clampedH].takeawayCount += 1;
+        else hourlyMap[clampedH].ojolCount += 1;
+      }
+    });
+
+    const hourlyList = Object.values(hourlyMap);
+    const maxOrders = Math.max(...hourlyList.map((h) => h.orderCount), 1);
+    const maxRevenue = Math.max(...hourlyList.map((h) => h.revenue), 100000);
+
+    const peakHour = hourlyList.reduce(
+      (max, curr) => (curr.orderCount > max.orderCount ? curr : max),
+      hourlyList.find((h) => h.hour === 12) || hourlyList[0]
+    );
+
+    const lunchOrders = hourlyList
+      .filter((h) => h.rushType === "lunch")
+      .reduce((s, h) => s + h.orderCount, 0);
+    const dinnerOrders = hourlyList
+      .filter((h) => h.rushType === "dinner")
+      .reduce((s, h) => s + h.orderCount, 0);
+
+    return {
+      hours: hourlyList,
+      maxOrders,
+      maxRevenue,
+      peakHour,
+      lunchOrders,
+      dinnerOrders,
+      totalOrders: list.length,
+    };
+  }, [filteredOrders, orders]);
 
   // 5. SPLINE SVG PATH GENERATOR
   const splinePaths = useMemo(() => {
@@ -355,7 +727,7 @@ export function SalesInfographicDashboard({
     const maxVal = chartData.maxVal * 1.15; // 15% headroom for top spacing
 
     const coords = points.map((p, idx) => {
-      const x = paddingX + (idx / (points.length - 1)) * chartW;
+      const x = paddingX + (idx / Math.max(1, points.length - 1)) * chartW;
       const y = paddingTop + (1 - p.total / maxVal) * chartH;
       return { x, y, data: p };
     });
@@ -426,11 +798,13 @@ export function SalesInfographicDashboard({
   // Time label description
   const timeHorizonDescription =
     timeHorizon === "today"
-      ? "Hari Ini (Live Session)"
+      ? "Hari Ini (Sesi Live)"
       : timeHorizon === "weekly"
       ? "7 Hari Terakhir (Siklus Mingguan)"
       : timeHorizon === "monthly"
-      ? "Bulan Ini (Oktober 2026)"
+      ? "Bulan Ini"
+      : timeHorizon === "custom"
+      ? `Rentang Tanggal: ${customStartDate} s/d ${customEndDate}`
       : "Semua Riwayat Database";
 
   return (
@@ -465,7 +839,7 @@ export function SalesInfographicDashboard({
           </div>
         </div>
 
-        {/* Time Horizon Filter Switcher & POS Fast-Action */}
+        {/* Time Horizon Filter Switcher & Custom Date Filter */}
         <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
           <div className="p-1 bg-slate-100 rounded-xl border border-slate-200/80 flex items-center gap-1 shadow-2xs">
             <button
@@ -512,7 +886,39 @@ export function SalesInfographicDashboard({
             >
               Semua
             </button>
+            <button
+              type="button"
+              onClick={() => setTimeHorizon("custom")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                timeHorizon === "custom"
+                  ? "bg-[#003629] text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+              }`}
+            >
+              <span className="material-symbols-outlined text-sm">calendar_month</span>
+              <span>Pilih Tanggal</span>
+            </button>
           </div>
+
+          {/* Inline Custom Date Range Inputs */}
+          {timeHorizon === "custom" && (
+            <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-xl border border-slate-200/90 shadow-2xs text-xs animate-in fade-in slide-in-from-top-1">
+              <span className="font-bold text-slate-500 text-[11px]">Dari:</span>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 font-mono text-xs font-bold text-slate-800 focus:outline-none focus:border-[#003629]"
+              />
+              <span className="font-bold text-slate-500 text-[11px]">s/d:</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 font-mono text-xs font-bold text-slate-800 focus:outline-none focus:border-[#003629]"
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -705,7 +1111,9 @@ export function SalesInfographicDashboard({
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-semibold text-slate-500">
                 Rata-rata:{" "}
-                <strong className="text-slate-800">{formatCurrency(chartData.dailyAverage)}/hari</strong>
+                <strong className="text-slate-800">
+                  {formatCurrency(chartData.dailyAverage)}/{chartData.unitLabel || "hari"}
+                </strong>
               </span>
             </div>
           </div>
@@ -958,9 +1366,9 @@ export function SalesInfographicDashboard({
             <span className="flex items-center gap-1.5 font-semibold">
               <span className="material-symbols-outlined text-base text-amber-600">stars</span>
               <span>
-                Hari Paling Ramai:{" "}
-                <strong className="text-slate-900">{chartData.peakDay.fullLabel}</strong> (
-                {formatCurrency(chartData.peakDay.total)})
+                Puncak Tertinggi:{" "}
+                <strong className="text-slate-900">{chartData.peakDay?.fullLabel || "-"}</strong> (
+                {formatCurrency(chartData.peakDay?.total || 0)})
               </span>
             </span>
             <span className="font-bold text-[#003629]">
@@ -1080,7 +1488,182 @@ export function SalesInfographicDashboard({
       </div>
 
       {/* ========================================================= */}
-      {/* 4. REAL-TIME LIVE TRANSACTION FEED (TRANSAKSI LIVE)        */}
+      {/* 4. ANALISIS PEAK TIME & JAM SIBUK RESTORAN               */}
+      {/* ========================================================= */}
+      <div className="p-5 sm:p-6 bg-white rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col gap-5">
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-orange-600 text-xl">schedule</span>
+              <h2 className="text-base sm:text-lg text-slate-900 font-black tracking-tight">
+                Analisis Peak Time &amp; Jam Sibuk Restoran
+              </h2>
+              <span className="px-2 py-0.5 rounded-full bg-orange-50 text-orange-800 text-[10px] font-extrabold border border-orange-200">
+                Trafik Pengunjung
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Distribusi intensitas pesanan per jam operasional untuk optimasi jadwal chef dapur dan staf pelayanan
+            </p>
+          </div>
+
+          {/* Rush Hour Indicator Badges */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-50 text-amber-900 border border-amber-200 text-xs font-bold">
+              <span>☀️</span>
+              <span>Makan Siang (11:00 - 14:00)</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-50 text-indigo-900 border border-indigo-200 text-xs font-bold">
+              <span>🌙</span>
+              <span>Makan Malam (18:00 - 21:00)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 4 Mini KPI Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Jam Tersibuk */}
+          <div className="p-3.5 rounded-xl bg-orange-50/70 border border-orange-200/80 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <span className="material-symbols-outlined text-xl">local_fire_department</span>
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block truncate">
+                Jam Tersibuk (Peak)
+              </span>
+              <span className="text-sm font-black text-slate-900 truncate block">
+                {peakTimeData.peakHour.timeRange}
+              </span>
+            </div>
+          </div>
+
+          {/* Volume di Jam Tersibuk */}
+          <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#003629] text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <span className="material-symbols-outlined text-xl">receipt_long</span>
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block truncate">
+                Pesanan di Jam Puncak
+              </span>
+              <span className="text-sm font-black text-[#003629] truncate block">
+                {peakTimeData.peakHour.orderCount} Struk ({formatCurrency(peakTimeData.peakHour.revenue)})
+              </span>
+            </div>
+          </div>
+
+          {/* Lunch Rush Total */}
+          <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <span className="material-symbols-outlined text-xl">wb_sunny</span>
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block truncate">
+                Total Makan Siang (11-13)
+              </span>
+              <span className="text-sm font-black text-amber-900 truncate block">
+                {peakTimeData.lunchOrders} Pesanan
+              </span>
+            </div>
+          </div>
+
+          {/* Dinner Rush Total */}
+          <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <span className="material-symbols-outlined text-xl">dark_mode</span>
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block truncate">
+                Total Makan Malam (18-20)
+              </span>
+              <span className="text-sm font-black text-indigo-950 truncate block">
+                {peakTimeData.dinnerOrders} Pesanan
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Hourly Distribution Bar Chart */}
+        <div className="w-full h-56 sm:h-64 flex items-end gap-1.5 sm:gap-2.5 pt-6 pb-2 px-1 relative select-none">
+          {peakTimeData.hours.map((h) => {
+            const heightPct = Math.max(8, Math.round((h.orderCount / peakTimeData.maxOrders) * 100));
+            const isTopPeak = h.hour === peakTimeData.peakHour.hour && h.orderCount > 0;
+            const isRush = h.rushType !== null;
+
+            return (
+              <div
+                key={h.hour}
+                className="flex-1 h-full flex flex-col justify-end items-center group relative cursor-pointer"
+              >
+                {/* Floating Tooltip */}
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-20 bg-slate-900/95 backdrop-blur-md text-white text-[11px] font-bold p-2.5 rounded-xl shadow-xl pointer-events-none whitespace-nowrap z-30">
+                  <div className="font-extrabold text-amber-400 flex items-center gap-1">
+                    <span>{h.timeRange}</span>
+                    {isTopPeak && (
+                      <span className="text-[9px] bg-orange-600 text-white px-1.5 py-0.2 rounded font-black uppercase">
+                        Puncak
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-white mt-0.5">
+                    {h.orderCount} Pesanan • {formatCurrency(h.revenue)}
+                  </div>
+                  <div className="text-[10px] text-slate-300 mt-0.5">
+                    Dine-in: {h.dineInCount} | Takeaway: {h.takeawayCount} | Delivery: {h.ojolCount}
+                  </div>
+                </div>
+
+                {/* Vertical Bar */}
+                <div
+                  className={`w-full max-w-[44px] rounded-t-xl transition-all duration-300 group-hover:scale-y-105 group-hover:shadow-md flex flex-col justify-end items-center ${
+                    isTopPeak
+                      ? "bg-gradient-to-t from-orange-600 to-amber-500 shadow-xs"
+                      : isRush
+                      ? "bg-gradient-to-t from-[#003629] to-emerald-600 shadow-2xs"
+                      : "bg-slate-200 hover:bg-slate-300"
+                  }`}
+                  style={{ height: `${heightPct}%` }}
+                >
+                  {h.orderCount > 0 && (
+                    <span className="text-[10px] font-black text-white mb-1.5 drop-shadow-xs">
+                      {h.orderCount}
+                    </span>
+                  )}
+                </div>
+
+                {/* Hour Label */}
+                <span
+                  className={`text-[10px] sm:text-xs mt-2 font-bold transition-colors ${
+                    isTopPeak
+                      ? "text-orange-700 font-black"
+                      : isRush
+                      ? "text-[#003629] font-extrabold"
+                      : "text-slate-400"
+                  }`}
+                >
+                  {h.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Operational Staffing Insights */}
+        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-600">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-base text-amber-600">lightbulb</span>
+            <span>
+              <strong>Rekomendasi Operasional:</strong> Jam paling ramai berada pada pukul{" "}
+              <strong className="text-slate-900">{peakTimeData.peakHour.timeRange}</strong>. Pastikan seluruh
+              posisi kasir dan juru masak dapur dalam kondisi siap optimal sebelum jam makan siang &amp; makan malam.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* 5. REAL-TIME LIVE TRANSACTION FEED (TRANSAKSI LIVE)        */}
       {/* ========================================================= */}
       <div className="p-5 sm:p-6 bg-white rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col gap-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-100 pb-3">
