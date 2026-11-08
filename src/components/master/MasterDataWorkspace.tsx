@@ -1881,25 +1881,10 @@ export function MasterDataWorkspace() {
                 <span className="material-symbols-outlined text-base">upload_file</span>
                 <span>Import Excel / CSV</span>
               </button>
-
-              {activeTab === "products" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("categories");
-                    setCategorySubTab("product");
-                  }}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold transition-all border border-outline-variant/40 cursor-pointer shadow-xs"
-                  title="Buka Tab Menu Kelola Kategori Produk"
-                >
-                  <span className="material-symbols-outlined text-base text-primary">category</span>
-                  <span>Kelola Kategori ({categoriesList.length})</span>
-                </button>
-              )}
             </>
           )}
 
-          {activeTab !== "categories" && activeTab !== "payments" ? (
+          {activeTab !== "categories" && activeTab !== "payments" && (
             <button
               onClick={() => {
                 if (activeTab === "products") {
@@ -1939,38 +1924,12 @@ export function MasterDataWorkspace() {
               <span className="material-symbols-outlined text-base">add</span>
               <span>
                 {activeTab === "products"
-                  ? "+ Tambah Menu"
+                  ? "Tambah Menu"
                   : activeTab === "tables"
-                  ? "+ Tambah Meja"
+                  ? "Tambah Meja"
                   : activeTab === "promos"
-                  ? (promoSubTab === "product_promos" ? "+ Tambah Promo Produk" : "+ Tambah Voucher")
-                  : "+ Tambah Pelanggan"}
-              </span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                if (categorySubTab === "product") {
-                  const input = document.getElementById("newCategoryNameInput");
-                  input?.focus();
-                } else if (categorySubTab === "area") {
-                  const input = document.getElementById("newAreaNameInput");
-                  input?.focus();
-                } else {
-                  const input = document.getElementById("newTierNameInput");
-                  input?.focus();
-                }
-              }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary hover:bg-primary/90 text-xs font-bold transition-all cursor-pointer shadow-xs"
-            >
-              <span className="material-symbols-outlined text-base">add</span>
-              <span>
-                {categorySubTab === "product"
-                  ? "+ Tambah Kategori Menu"
-                  : categorySubTab === "area"
-                  ? "+ Tambah Area Meja"
-                  : "+ Tambah Kategori Member"}
+                  ? (promoSubTab === "product_promos" ? "Tambah Promo Produk" : "Tambah Voucher")
+                  : "Tambah Pelanggan"}
               </span>
             </button>
           )}
@@ -2041,21 +2000,6 @@ export function MasterDataWorkspace() {
 
         <button
           onClick={() => {
-            setActiveTab("categories");
-            setSearchQuery("");
-          }}
-          className={`pb-3 px-3 font-bold text-sm flex items-center gap-2 transition-colors cursor-pointer border-b-2 shrink-0 ${
-            activeTab === "categories"
-              ? "border-primary text-primary"
-              : "border-transparent text-on-surface-variant hover:text-on-surface"
-          }`}
-        >
-          <span className="material-symbols-outlined text-lg">category</span>
-          <span>Kelola Kategori</span>
-        </button>
-
-        <button
-          onClick={() => {
             setActiveTab("payments");
             setSearchQuery("");
           }}
@@ -2067,6 +2011,21 @@ export function MasterDataWorkspace() {
         >
           <span className="material-symbols-outlined text-lg">payments</span>
           <span>Data Pembayaran</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab("categories");
+            setSearchQuery("");
+          }}
+          className={`pb-3 px-3 font-bold text-sm flex items-center gap-2 transition-colors cursor-pointer border-b-2 shrink-0 ${
+            activeTab === "categories"
+              ? "border-primary text-primary"
+              : "border-transparent text-on-surface-variant hover:text-on-surface"
+          }`}
+        >
+          <span className="material-symbols-outlined text-lg">category</span>
+          <span>Kelola Kategori</span>
         </button>
       </div>
 
@@ -2105,29 +2064,6 @@ export function MasterDataWorkspace() {
               </span>
             </button>
           </div>
-
-          {paymentSubTab === "bank" && (
-            <button
-              type="button"
-              onClick={handleOpenAddBankAccount}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary hover:bg-primary/90 text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
-            >
-              <span className="material-symbols-outlined text-base">add</span>
-              <span>+ Tambah Rekening Bank</span>
-            </button>
-          )}
-
-          {paymentSubTab === "qris" && (
-            <button
-              type="button"
-              onClick={handleSaveQrisSettings}
-              disabled={isSavingQris}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#003629] text-white hover:bg-[#00261d] text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
-            >
-              <span className="material-symbols-outlined text-base">save</span>
-              <span>{isSavingQris ? "Menyimpan..." : "Simpan Pengaturan QRIS"}</span>
-            </button>
-          )}
         </div>
       )}
 
@@ -2218,34 +2154,20 @@ export function MasterDataWorkspace() {
 
             {/* Category, Area, Promo Scope, or Customer Tier Filter */}
             {activeTab === "products" ? (
-              <div className="flex items-center gap-2 shrink-0">
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="px-3 py-2 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-outline-variant/30 focus:outline-none focus:border-primary cursor-pointer"
-                >
-                  <option value="all">
-                    Semua Kategori ({Math.max(categoriesList.length, categories.length - 1)} Kategori)
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="px-3 py-2 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-outline-variant/30 focus:outline-none focus:border-primary cursor-pointer shrink-0"
+              >
+                <option value="all">
+                  Semua Kategori ({Math.max(categoriesList.length, categories.length - 1)} Kategori)
+                </option>
+                {categories.slice(1).map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
                   </option>
-                  {categories.slice(1).map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("categories");
-                    setCategorySubTab("product");
-                  }}
-                  className="px-2.5 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high border border-outline-variant/30 text-xs font-bold text-on-surface flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all"
-                  title="Buka Tab Menu Kelola Kategori Produk"
-                >
-                  <span className="material-symbols-outlined text-sm text-primary">category</span>
-                  <span className="hidden sm:inline">Kelola Kategori</span>
-                </button>
-              </div>
+                ))}
+              </select>
             ) : activeTab === "tables" ? (
               <select
                 value={selectedArea}
@@ -3177,7 +3099,7 @@ export function MasterDataWorkspace() {
                 className="px-4 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary/90 flex items-center gap-1.5 cursor-pointer shadow-xs mt-1"
               >
                 <span className="material-symbols-outlined text-base">person_add</span>
-                <span>+ Daftarkan Pelanggan Baru</span>
+                <span>Daftarkan Pelanggan Baru</span>
               </button>
             </div>
           ) : (
@@ -4038,20 +3960,6 @@ export function MasterDataWorkspace() {
                         </div>
                       )}
                     </div>
-
-                    {/* Alternatif Input Link / URL Gambar */}
-                    <div className="mt-2">
-                      <label className="text-[11px] font-bold text-on-surface-variant block mb-1">
-                        Atau Masukkan URL Gambar QRIS:
-                      </label>
-                      <input
-                        type="text"
-                        value={qrisImageUrl}
-                        onChange={(e) => setQrisImageUrl(e.target.value)}
-                        placeholder="https://... atau data:image/..."
-                        className="w-full px-3.5 py-2 bg-surface-container-low rounded-xl border border-outline-variant/40 text-xs font-mono text-on-surface focus:outline-none focus:border-primary shadow-inner"
-                      />
-                    </div>
                   </div>
 
                   {/* Input Petunjuk Kasir & Pelanggan */}
@@ -4176,7 +4084,7 @@ export function MasterDataWorkspace() {
                     onClick={handleOpenAddBankAccount}
                     className="mt-2 px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold cursor-pointer transition-all shadow-xs"
                   >
-                    + Tambah Rekening Pertama
+                    Tambah Rekening Pertama
                   </button>
                 </div>
               ) : (
@@ -4770,7 +4678,7 @@ export function MasterDataWorkspace() {
                       disabled={!newAddonName.trim()}
                       className="px-3 py-2 rounded-lg bg-[#003629] text-white text-xs font-bold hover:bg-[#00261d] disabled:opacity-40 transition-all shrink-0 cursor-pointer"
                     >
-                      + Tambah
+                      Tambah
                     </button>
                   </div>
 
