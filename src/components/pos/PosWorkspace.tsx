@@ -3378,96 +3378,74 @@ export function PosWorkspace({
                         )}
                       </div>
 
-                      {/* Card Footer: Status & Tombol/Label Reservasi */}
-                      <div className="pt-2 border-t border-slate-100 shrink-0">
-                        {isAvailable && (
-                          <div className="flex items-center justify-between text-[11px] gap-1">
-                            <span className="text-xs font-bold text-[#006e33] flex items-center gap-1 truncate">
-                              <span className="material-symbols-outlined text-xs">check_circle</span>
-                              <span className="truncate">Siap ditempati tamu</span>
-                            </span>
+                      {/* Card Footer: Action Buttons (Hanya untuk Meja Terisi dan Reservasi) */}
+                      {(isOccupied || isReservation) && (
+                        <div className="pt-2 border-t border-slate-100 shrink-0">
+                          {isOccupied && (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                id={`btn-bayar-${table.tableNumber.toLowerCase().replace(/\s+/g, "")}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTableNumber(table.tableNumber);
+                                }}
+                                className={`flex-1 py-1.5 px-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer shadow-xs ${isSelected
+                                    ? "bg-primary text-on-primary"
+                                    : "bg-primary hover:bg-primary/90 text-on-primary"
+                                  }`}
+                              >
+                                <span className="material-symbols-outlined text-sm">payments</span>
+                                <span>Bayar</span>
+                              </button>
+                              <button
+                                type="button"
+                                id={`btn-pindah-${table.tableNumber.toLowerCase().replace(/\s+/g, "")}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenMoveTable(table);
+                                }}
+                                className="py-1.5 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border border-slate-200/90 shadow-2xs shrink-0"
+                                title={`Pindahkan tamu dari ${table.tableNumber} ke meja lain`}
+                              >
+                                <span className="material-symbols-outlined text-xs text-primary">sync_alt</span>
+                                <span>Pindah</span>
+                              </button>
+                            </div>
+                          )}
 
-                            {/* Tombol/Label Reservasi (Sesuai Gaya Tombol Detail Produk pada Katalog) */}
-                            <button
-                              type="button"
-                              id={`btn-reservasi-${table.tableNumber.toLowerCase().replace(/\s+/g, "")}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenReservationModal(table);
-                              }}
-                              className="px-2.5 py-1 rounded-xl font-bold text-[10px] flex items-center gap-1 transition-all cursor-pointer shadow-2xs border shrink-0 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border-slate-200/90"
-                              title={`Buat reservasi untuk ${table.tableNumber}`}
-                            >
-                              <span className="material-symbols-outlined text-[13px] text-primary">event_seat</span>
-                              <span>Reservasi</span>
-                            </button>
-                          </div>
-                        )}
-
-                        {isOccupied && (
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              id={`btn-bayar-${table.tableNumber.toLowerCase().replace(/\s+/g, "")}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedTableNumber(table.tableNumber);
-                              }}
-                              className={`flex-1 py-1.5 px-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer shadow-xs ${isSelected
-                                  ? "bg-primary text-on-primary"
-                                  : "bg-primary hover:bg-primary/90 text-on-primary"
-                                }`}
-                            >
-                              <span className="material-symbols-outlined text-sm">payments</span>
-                              <span>Bayar</span>
-                            </button>
-                            <button
-                              type="button"
-                              id={`btn-pindah-${table.tableNumber.toLowerCase().replace(/\s+/g, "")}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenMoveTable(table);
-                              }}
-                              className="py-1.5 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border border-slate-200/90 shadow-2xs shrink-0"
-                              title={`Pindahkan tamu dari ${table.tableNumber} ke meja lain`}
-                            >
-                              <span className="material-symbols-outlined text-xs text-primary">sync_alt</span>
-                              <span>Pindah</span>
-                            </button>
-                          </div>
-                        )}
-
-                        {isReservation && (
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              id={`btn-mulai-${table.tableNumber.toLowerCase().replace(/\s+/g, "")}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleActivateReservation(table);
-                              }}
-                              className="flex-1 py-1.5 px-2 rounded-xl bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer shadow-xs"
-                              title="Tamu hadir, mulai makan"
-                            >
-                              <span className="material-symbols-outlined text-sm">how_to_reg</span>
-                              <span>Mulai</span>
-                            </button>
-                            <button
-                              type="button"
-                              id={`btn-batal-${table.tableNumber.toLowerCase().replace(/\s+/g, "")}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenCancelModal(table);
-                              }}
-                              className="py-1.5 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border border-rose-200 shadow-2xs shrink-0"
-                              title="Batalkan reservasi ini"
-                            >
-                              <span className="material-symbols-outlined text-xs">cancel</span>
-                              <span>Batal</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                          {isReservation && (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                id={`btn-mulai-${table.tableNumber.toLowerCase().replace(/\s+/g, "")}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleActivateReservation(table);
+                                }}
+                                className="flex-1 py-1.5 px-2 rounded-xl bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer shadow-xs"
+                                title="Tamu hadir, mulai makan"
+                              >
+                                <span className="material-symbols-outlined text-sm">how_to_reg</span>
+                                <span>Mulai</span>
+                              </button>
+                              <button
+                                type="button"
+                                id={`btn-batal-${table.tableNumber.toLowerCase().replace(/\s+/g, "")}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenCancelModal(table);
+                                }}
+                                className="py-1.5 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border border-rose-200 shadow-2xs shrink-0"
+                                title="Batalkan reservasi ini"
+                              >
+                                <span className="material-symbols-outlined text-xs">cancel</span>
+                                <span>Batal</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
