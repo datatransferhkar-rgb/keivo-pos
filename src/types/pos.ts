@@ -47,6 +47,20 @@ export interface RestaurantSettings {
   showFacebook?: boolean;
   tiktok?: string;
   showTiktok?: boolean;
+  // Program Loyalitas & Poin Member (Dinamis Model 1)
+  loyaltyProgramEnabled?: boolean;
+  loyaltySpendPerPoint?: number; // Kelipatan belanja untuk 1 poin (default 10000)
+  loyaltyPointValue?: number; // Nilai 1 poin dalam rupiah (default 100)
+  loyaltyMinRedeemPoints?: number; // Minimal poin untuk penukaran (default 10)
+  loyaltyMaxRedeemPercent?: number; // Maksimal potongan dalam % (default 100)
+  loyaltyTierRules?: LoyaltyTierRule[];
+}
+
+export interface LoyaltyTierRule {
+  tierCode: string;
+  tierName: string;
+  minSpend: number;
+  pointMultiplier: number;
 }
 
 export interface ProductAddon {
@@ -82,6 +96,8 @@ export interface CustomerTierCategory {
   badgeColor?: string;
   sortOrder?: number;
   isActive?: boolean;
+  minSpend?: number;
+  pointMultiplier?: number;
   customerCount?: number;
 }
 

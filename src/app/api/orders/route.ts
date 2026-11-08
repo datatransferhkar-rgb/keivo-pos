@@ -211,6 +211,67 @@ export async function GET(request: Request) {
   }
 }
 
+async function processCustomerLoyaltyAfterPayment(customerId: string, orderTotal: number, pointsRedeemed: number = 0) {
+  try {
+    const customer = await db.customer.findUnique({ where: { id: customerId } });
+    if (!customer) return;
+
+    let spendPerPoint = 10000;
+    let isLoyaltyEnabled = true;
+    let tierRules: { tierCode: string; tierName: string; minSpend: number; pointMultiplier: number }[] = [
+      { tierCode: "regular", tierName: "Regular", minSpend: 0, pointMultiplier: 1.0 },
+      { tierCode: "silver", tierName: "Silver Member", minSpend: 1000000, pointMultiplier: 1.2 },
+      { tierCode: "gold", tierName: "Gold Member", minSpend: 3000000, pointMultiplier: 1.5 },
+      { tierCode: "vip", tierName: "VIP Member", minSpend: 7000000, pointMultiplier: 2.0 },
+    ];
+
+    try {
+      const setting = await db.restaurantSetting.findUnique({ where: { id: "default" } });
+      if (setting) {
+        if (setting.loyaltySpendPerPoint) spendPerPoint = setting.loyaltySpendPerPoint;
+        if (setting.loyaltyProgramEnabled !== undefined) isLoyaltyEnabled = setting.loyaltyProgramEnabled;
+        if (setting.loyaltyTierRules) {
+          const parsed = typeof setting.loyaltyTierRules === "string" ? JSON.parse(setting.loyaltyTierRules) : setting.loyaltyTierRules;
+          if (Array.isArray(parsed) && parsed.length > 0) tierRules = parsed;
+        }
+      }
+    } catch {}
+
+    // 1. Calculate points earned
+    let pointsEarned = 0;
+    if (isLoyaltyEnabled && spendPerPoint > 0) {
+      const currentTier = (customer.tier || "regular").toLowerCase();
+      const currentTierRule = tierRules.find((r) => r.tierCode.toLowerCase() === currentTier) || tierRules[0];
+      const multiplier = currentTierRule?.pointMultiplier || 1.0;
+      pointsEarned = Math.floor((orderTotal / spendPerPoint) * multiplier);
+    }
+
+    // 2. Calculate new total spent
+    const newTotalSpent = (customer.totalSpent || 0) + Math.max(0, orderTotal);
+
+    // 3. Determine new tier based on Model 1 (Total Spend threshold)
+    const sortedRules = [...tierRules].sort((a, b) => (b.minSpend || 0) - (a.minSpend || 0));
+    const qualifiedRule = sortedRules.find((r) => newTotalSpent >= (r.minSpend || 0)) || sortedRules[sortedRules.length - 1];
+    const newTier = qualifiedRule ? qualifiedRule.tierCode.toLowerCase() : customer.tier;
+
+    // 4. Calculate new points balance
+    const netPointsChange = pointsEarned - Math.max(0, pointsRedeemed);
+    const newPointsBalance = Math.max(0, (customer.points || 0) + netPointsChange);
+
+    await db.customer.update({
+      where: { id: customerId },
+      data: {
+        totalVisits: { increment: 1 },
+        totalSpent: newTotalSpent,
+        points: newPointsBalance,
+        tier: newTier,
+      },
+    });
+  } catch (err) {
+    console.error("Failed to process customer loyalty:", err);
+  }
+}
+
 // POST /api/orders - Create new order
 export async function POST(request: Request) {
   try {
@@ -447,19 +508,7 @@ export async function POST(request: Request) {
         });
 
         if (customerId) {
-          try {
-            const pointsEarned = Math.floor(totalAmount / 10000);
-            await db.customer.update({
-              where: { id: customerId },
-              data: {
-                totalVisits: { increment: 1 },
-                totalSpent: { increment: totalAmount },
-                points: { increment: pointsEarned },
-              },
-            });
-          } catch (custErr) {
-            console.error("Failed to update customer stats in POST:", custErr);
-          }
+          await processCustomerLoyaltyAfterPayment(customerId, totalAmount, body.pointsRedeemed || 0);
         }
       } catch (payErr) {
         console.error("Failed to record payment in POST /api/orders:", payErr);
@@ -719,20 +768,8 @@ export async function PATCH(request: Request) {
 
           const targetCustomerId = body.customerId || existing.customerId;
           if (targetCustomerId) {
-            try {
-              const finalTotal = updateData.totalAmount ?? existing.totalAmount;
-              const pointsEarned = Math.floor(finalTotal / 10000);
-              await db.customer.update({
-                where: { id: targetCustomerId },
-                data: {
-                  totalVisits: { increment: 1 },
-                  totalSpent: { increment: finalTotal },
-                  points: { increment: pointsEarned },
-                },
-              });
-            } catch (custErr) {
-              console.error("Failed to update customer stats in PATCH:", custErr);
-            }
+            const finalTotal = updateData.totalAmount ?? existing.totalAmount;
+            await processCustomerLoyaltyAfterPayment(targetCustomerId, finalTotal, body.pointsRedeemed || 0);
           }
         } catch (payErr) {
           console.error("Failed to create Payment in PATCH /api/orders:", payErr);

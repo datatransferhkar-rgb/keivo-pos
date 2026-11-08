@@ -32,11 +32,27 @@ export async function GET() {
           showFacebook: true,
           tiktok: "@pawon.nusantara",
           showTiktok: true,
+          loyaltyProgramEnabled: true,
+          loyaltySpendPerPoint: 10000,
+          loyaltyPointValue: 100,
+          loyaltyMinRedeemPoints: 10,
+          loyaltyMaxRedeemPercent: 100,
+          loyaltyTierRules: JSON.stringify([
+            { tierCode: "regular", tierName: "Regular", minSpend: 0, pointMultiplier: 1.0 },
+            { tierCode: "silver", tierName: "Silver Member", minSpend: 1000000, pointMultiplier: 1.2 },
+            { tierCode: "gold", tierName: "Gold Member", minSpend: 3000000, pointMultiplier: 1.5 },
+            { tierCode: "vip", tierName: "VIP Member", minSpend: 7000000, pointMultiplier: 2.0 },
+          ]),
         },
       });
     }
 
-    return NextResponse.json(settings);
+    return NextResponse.json({
+      ...settings,
+      loyaltyTierRules: typeof settings.loyaltyTierRules === "string" && settings.loyaltyTierRules.startsWith("[")
+        ? JSON.parse(settings.loyaltyTierRules)
+        : settings.loyaltyTierRules,
+    });
   } catch (error) {
     console.error("Error fetching restaurant settings:", error);
     return NextResponse.json(
@@ -62,6 +78,17 @@ export async function GET() {
         showFacebook: true,
         tiktok: "@pawon.nusantara",
         showTiktok: true,
+        loyaltyProgramEnabled: true,
+        loyaltySpendPerPoint: 10000,
+        loyaltyPointValue: 100,
+        loyaltyMinRedeemPoints: 10,
+        loyaltyMaxRedeemPercent: 100,
+        loyaltyTierRules: [
+          { tierCode: "regular", tierName: "Regular", minSpend: 0, pointMultiplier: 1.0 },
+          { tierCode: "silver", tierName: "Silver Member", minSpend: 1000000, pointMultiplier: 1.2 },
+          { tierCode: "gold", tierName: "Gold Member", minSpend: 3000000, pointMultiplier: 1.5 },
+          { tierCode: "vip", tierName: "VIP Member", minSpend: 7000000, pointMultiplier: 2.0 },
+        ],
       },
       { status: 200 }
     );
@@ -97,6 +124,12 @@ export async function PUT(request: Request) {
         showFacebook: body.showFacebook !== undefined ? Boolean(body.showFacebook) : undefined,
         tiktok: body.tiktok !== undefined ? body.tiktok : undefined,
         showTiktok: body.showTiktok !== undefined ? Boolean(body.showTiktok) : undefined,
+        loyaltyProgramEnabled: body.loyaltyProgramEnabled !== undefined ? Boolean(body.loyaltyProgramEnabled) : undefined,
+        loyaltySpendPerPoint: body.loyaltySpendPerPoint !== undefined ? Number(body.loyaltySpendPerPoint) : undefined,
+        loyaltyPointValue: body.loyaltyPointValue !== undefined ? Number(body.loyaltyPointValue) : undefined,
+        loyaltyMinRedeemPoints: body.loyaltyMinRedeemPoints !== undefined ? Number(body.loyaltyMinRedeemPoints) : undefined,
+        loyaltyMaxRedeemPercent: body.loyaltyMaxRedeemPercent !== undefined ? Number(body.loyaltyMaxRedeemPercent) : undefined,
+        loyaltyTierRules: body.loyaltyTierRules !== undefined ? (typeof body.loyaltyTierRules === "string" ? body.loyaltyTierRules : JSON.stringify(body.loyaltyTierRules)) : undefined,
       },
       create: {
         id: "default",
@@ -122,10 +155,21 @@ export async function PUT(request: Request) {
         showFacebook: body.showFacebook !== undefined ? Boolean(body.showFacebook) : true,
         tiktok: body.tiktok || "@pawon.nusantara",
         showTiktok: body.showTiktok !== undefined ? Boolean(body.showTiktok) : true,
+        loyaltyProgramEnabled: body.loyaltyProgramEnabled !== undefined ? Boolean(body.loyaltyProgramEnabled) : true,
+        loyaltySpendPerPoint: body.loyaltySpendPerPoint !== undefined ? Number(body.loyaltySpendPerPoint) : 10000,
+        loyaltyPointValue: body.loyaltyPointValue !== undefined ? Number(body.loyaltyPointValue) : 100,
+        loyaltyMinRedeemPoints: body.loyaltyMinRedeemPoints !== undefined ? Number(body.loyaltyMinRedeemPoints) : 10,
+        loyaltyMaxRedeemPercent: body.loyaltyMaxRedeemPercent !== undefined ? Number(body.loyaltyMaxRedeemPercent) : 100,
+        loyaltyTierRules: body.loyaltyTierRules !== undefined ? (typeof body.loyaltyTierRules === "string" ? body.loyaltyTierRules : JSON.stringify(body.loyaltyTierRules)) : "[]",
       },
     });
 
-    return NextResponse.json(updated);
+    return NextResponse.json({
+      ...updated,
+      loyaltyTierRules: typeof updated.loyaltyTierRules === "string" && updated.loyaltyTierRules.startsWith("[")
+        ? JSON.parse(updated.loyaltyTierRules)
+        : updated.loyaltyTierRules,
+    });
   } catch (error) {
     console.error("Error updating restaurant settings:", error);
     return NextResponse.json(

@@ -1,8 +1,15 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { RestaurantSettings, PrinterConfig } from "@/types/pos";
+import { RestaurantSettings, PrinterConfig, LoyaltyTierRule } from "@/types/pos";
 import { UserProfile, UserRole, SystemMenu, DEFAULT_USERS, ROLE_PERMISSIONS, ActiveCashierShift } from "@/types/auth";
+
+export const DEFAULT_LOYALTY_TIER_RULES: LoyaltyTierRule[] = [
+  { tierCode: "regular", tierName: "Regular", minSpend: 0, pointMultiplier: 1.0 },
+  { tierCode: "silver", tierName: "Silver Member", minSpend: 1000000, pointMultiplier: 1.2 },
+  { tierCode: "gold", tierName: "Gold Member", minSpend: 3000000, pointMultiplier: 1.5 },
+  { tierCode: "vip", tierName: "VIP Member", minSpend: 7000000, pointMultiplier: 2.0 },
+];
 
 // No dummy printers — printers are added by user via Bluetooth scanning
 const DEFAULT_PRINTERS: PrinterConfig[] = [];
@@ -54,6 +61,12 @@ const DEFAULT_SETTINGS: RestaurantSettings = {
   showFacebook: true,
   tiktok: "@pawon.nusantara",
   showTiktok: true,
+  loyaltyProgramEnabled: true,
+  loyaltySpendPerPoint: 10000,
+  loyaltyPointValue: 100,
+  loyaltyMinRedeemPoints: 10,
+  loyaltyMaxRedeemPercent: 100,
+  loyaltyTierRules: DEFAULT_LOYALTY_TIER_RULES,
 };
 
 interface RestaurantContextType {
@@ -279,6 +292,22 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
             showFacebook: data.showFacebook !== undefined ? Boolean(data.showFacebook) : DEFAULT_SETTINGS.showFacebook,
             tiktok: data.tiktok ?? DEFAULT_SETTINGS.tiktok,
             showTiktok: data.showTiktok !== undefined ? Boolean(data.showTiktok) : DEFAULT_SETTINGS.showTiktok,
+            loyaltyProgramEnabled: data.loyaltyProgramEnabled !== undefined ? Boolean(data.loyaltyProgramEnabled) : DEFAULT_SETTINGS.loyaltyProgramEnabled,
+            loyaltySpendPerPoint: data.loyaltySpendPerPoint !== undefined ? Number(data.loyaltySpendPerPoint) : DEFAULT_SETTINGS.loyaltySpendPerPoint,
+            loyaltyPointValue: data.loyaltyPointValue !== undefined ? Number(data.loyaltyPointValue) : DEFAULT_SETTINGS.loyaltyPointValue,
+            loyaltyMinRedeemPoints: data.loyaltyMinRedeemPoints !== undefined ? Number(data.loyaltyMinRedeemPoints) : DEFAULT_SETTINGS.loyaltyMinRedeemPoints,
+            loyaltyMaxRedeemPercent: data.loyaltyMaxRedeemPercent !== undefined ? Number(data.loyaltyMaxRedeemPercent) : DEFAULT_SETTINGS.loyaltyMaxRedeemPercent,
+            loyaltyTierRules: (() => {
+              if (Array.isArray(data.loyaltyTierRules) && data.loyaltyTierRules.length > 0) return data.loyaltyTierRules;
+              try {
+                const saved = localStorage.getItem("keivo_pos_settings");
+                if (saved) {
+                  const parsed = JSON.parse(saved);
+                  if (Array.isArray(parsed.loyaltyTierRules) && parsed.loyaltyTierRules.length > 0) return parsed.loyaltyTierRules;
+                }
+              } catch {}
+              return DEFAULT_LOYALTY_TIER_RULES;
+            })(),
             // Restore saved printers from localStorage if available
             printers: (() => {
               try {

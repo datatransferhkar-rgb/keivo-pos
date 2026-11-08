@@ -3,9 +3,9 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import * as XLSX from "xlsx";
 import { formatCurrency } from "@/lib/formatters";
-import { MasterProduct, MasterTable, ProductAddon, PromoDiscount, ProductPromo, Customer, CustomerTier, ProductCategory, TableAreaCategory, CustomerTierCategory, BankAccount } from "@/types/pos";
+import { MasterProduct, MasterTable, ProductAddon, PromoDiscount, ProductPromo, Customer, CustomerTier, ProductCategory, TableAreaCategory, CustomerTierCategory, BankAccount, LoyaltyTierRule } from "@/types/pos";
 import { calculateProductPromoPrice } from "@/lib/productPromoHelper";
-import { useRestaurant } from "@/context/RestaurantContext";
+import { useRestaurant, DEFAULT_LOYALTY_TIER_RULES } from "@/context/RestaurantContext";
 import { TableQrModal } from "@/components/modals/TableQrModal";
 import { PrintAllTablesQrModal } from "@/components/modals/PrintAllTablesQrModal";
 import { ProductDetailModal } from "@/components/modals/ProductDetailModal";
@@ -246,6 +246,16 @@ export function MasterDataWorkspace() {
     notes: "",
     isActive: true,
   });
+
+  // Loyalty & Member Tier Settings Modal State (Model 1: Total Spend)
+  const [isLoyaltyModalOpen, setIsLoyaltyModalOpen] = useState(false);
+  const [loyaltyFormEnabled, setLoyaltyFormEnabled] = useState(true);
+  const [loyaltyFormSpendPerPoint, setLoyaltyFormSpendPerPoint] = useState(10000);
+  const [loyaltyFormPointValue, setLoyaltyFormPointValue] = useState(100);
+  const [loyaltyFormMinRedeemPoints, setLoyaltyFormMinRedeemPoints] = useState(10);
+  const [loyaltyFormMaxRedeemPercent, setLoyaltyFormMaxRedeemPercent] = useState(100);
+  const [loyaltyFormTierRules, setLoyaltyFormTierRules] = useState<LoyaltyTierRule[]>(DEFAULT_LOYALTY_TIER_RULES);
+  const [isSavingLoyalty, setIsSavingLoyalty] = useState(false);
 
   // Table QR Code Modals
   const [selectedQrTable, setSelectedQrTable] = useState<MasterTable | null>(null);
@@ -603,6 +613,79 @@ export function MasterDataWorkspace() {
       console.error("Gagal menyimpan data pelanggan:", err);
       alert("Terjadi kesalahan saat menyimpan data pelanggan.");
     }
+  };
+
+  const handleOpenLoyaltyModal = () => {
+    setLoyaltyFormEnabled(settings.loyaltyProgramEnabled !== false);
+    setLoyaltyFormSpendPerPoint(settings.loyaltySpendPerPoint || 10000);
+    setLoyaltyFormPointValue(settings.loyaltyPointValue || 100);
+    setLoyaltyFormMinRedeemPoints(settings.loyaltyMinRedeemPoints || 10);
+    setLoyaltyFormMaxRedeemPercent(settings.loyaltyMaxRedeemPercent || 100);
+
+    const existingRules = settings.loyaltyTierRules || DEFAULT_LOYALTY_TIER_RULES;
+    const listToMap = customerTiersList.length > 0 ? customerTiersList : DEFAULT_CUSTOMER_TIERS;
+    const merged: LoyaltyTierRule[] = listToMap.map((tier) => {
+      const match = existingRules.find((r) => r.tierCode.toLowerCase() === tier.code.toLowerCase());
+      if (match) {
+        return {
+          tierCode: tier.code,
+          tierName: tier.name,
+          minSpend: match.minSpend ?? 0,
+          pointMultiplier: match.pointMultiplier ?? 1.0,
+        };
+      }
+      const defSpend = tier.code === "vip" ? 7000000 : tier.code === "gold" ? 3000000 : tier.code === "silver" ? 1000000 : 0;
+      const defMultiplier = tier.code === "vip" ? 2.0 : tier.code === "gold" ? 1.5 : tier.code === "silver" ? 1.2 : 1.0;
+      return {
+        tierCode: tier.code,
+        tierName: tier.name,
+        minSpend: tier.minSpend !== undefined ? tier.minSpend : defSpend,
+        pointMultiplier: tier.pointMultiplier !== undefined ? tier.pointMultiplier : defMultiplier,
+      };
+    });
+
+    setLoyaltyFormTierRules(merged);
+    setIsLoyaltyModalOpen(true);
+  };
+
+  const handleSaveLoyaltySettings = async () => {
+    setIsSavingLoyalty(true);
+    try {
+      const ok = await updateSettings({
+        loyaltyProgramEnabled: loyaltyFormEnabled,
+        loyaltySpendPerPoint: Number(loyaltyFormSpendPerPoint) || 10000,
+        loyaltyPointValue: Number(loyaltyFormPointValue) || 100,
+        loyaltyMinRedeemPoints: Number(loyaltyFormMinRedeemPoints) || 10,
+        loyaltyMaxRedeemPercent: Number(loyaltyFormMaxRedeemPercent) || 100,
+        loyaltyTierRules: loyaltyFormTierRules,
+      });
+
+      if (ok) {
+        alert("Pengaturan program loyalitas & syarat kategori member berhasil disimpan!");
+        setIsLoyaltyModalOpen(false);
+      } else {
+        alert("Pengaturan disimpan ke memori lokal browser.");
+        setIsLoyaltyModalOpen(false);
+      }
+    } catch (err) {
+      alert("Terjadi kesalahan saat menyimpan pengaturan loyalitas.");
+    } finally {
+      setIsSavingLoyalty(false);
+    }
+  };
+
+  const handleResetLoyaltyDefaults = () => {
+    setLoyaltyFormEnabled(true);
+    setLoyaltyFormSpendPerPoint(10000);
+    setLoyaltyFormPointValue(100);
+    setLoyaltyFormMinRedeemPoints(10);
+    setLoyaltyFormMaxRedeemPercent(100);
+    setLoyaltyFormTierRules([
+      { tierCode: "regular", tierName: "Regular", minSpend: 0, pointMultiplier: 1.0 },
+      { tierCode: "silver", tierName: "Silver Member", minSpend: 1000000, pointMultiplier: 1.2 },
+      { tierCode: "gold", tierName: "Gold Member", minSpend: 3000000, pointMultiplier: 1.5 },
+      { tierCode: "vip", tierName: "VIP Member", minSpend: 7000000, pointMultiplier: 2.0 },
+    ]);
   };
 
   const fetchPromos = async () => {
@@ -1933,6 +2016,18 @@ export function MasterDataWorkspace() {
               </span>
             </button>
           )}
+
+          {activeTab === "customers" && (
+            <button
+              type="button"
+              onClick={handleOpenLoyaltyModal}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-amber-300 text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
+              title="Atur perhitungan poin reward dan syarat akumulasi belanja kategori member"
+            >
+              <span className="material-symbols-outlined text-base text-amber-600">stars</span>
+              <span>Aturan Loyalitas &amp; Poin</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -3002,6 +3097,52 @@ export function MasterDataWorkspace() {
 {/* TAB CONTENT: PELANGGAN & MEMBER */}
       {activeTab === "customers" && (
         <div className="mt-4 flex flex-col gap-5">
+          {/* Banner Pengaturan Program Loyalitas & Kategori Member (Opsi B) */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-linear-to-r from-amber-500/15 via-amber-500/5 to-transparent border border-amber-300/70 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-900 border border-amber-500/30 flex items-center justify-center shrink-0 shadow-2xs">
+                <span className="material-symbols-outlined text-2xl font-bold">stars</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-sm sm:text-base text-on-surface">
+                    Program Loyalitas &amp; Poin Member
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-200 text-amber-950 border border-amber-300">
+                    Model 1: Akumulasi Belanja (Total Spend)
+                  </span>
+                  {settings.loyaltyProgramEnabled === false && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
+                      Nonaktif
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 flex-wrap text-xs text-on-surface-variant font-medium">
+                  <span className="flex items-center gap-1">
+                    <span className="text-amber-800 font-bold">1 Poin</span> = Tiap Belanja <strong className="text-on-surface">{formatCurrency(settings.loyaltySpendPerPoint || 10000)}</strong>
+                  </span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1">
+                    Tukar <span className="text-amber-800 font-bold">1 Poin</span> = Potongan <strong className="text-on-surface">Rp {(settings.loyaltyPointValue || 100).toLocaleString("id-ID")}</strong>
+                  </span>
+                  <span>•</span>
+                  <span>Min. Tukar: <strong className="text-on-surface">{settings.loyaltyMinRedeemPoints || 10} Poin</strong></span>
+                  <span>•</span>
+                  <span className="text-emerald-800 font-bold">Kenaikan Tier Otomatis</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleOpenLoyaltyModal}
+              className="px-4 py-2.5 rounded-xl bg-[#003629] hover:bg-[#00261d] text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95 transition-all shrink-0"
+            >
+              <span className="material-symbols-outlined text-base">tune</span>
+              <span>Atur Nilai &amp; Kategori Member</span>
+            </button>
+          </div>
+
           {/* Summary Stat Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="p-4 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 flex items-center gap-3.5 shadow-2xs">
@@ -6097,6 +6238,346 @@ export function MasterDataWorkspace() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL: PENGATURAN PROGRAM LOYALITAS & KATEGORI MEMBER
+          (Model 1: Akumulasi Belanja / Total Spend Tiering)
+         ======================================================== */}
+      {isLoyaltyModalOpen && (
+        <div
+          id="modal-loyalty-settings-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsLoyaltyModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+        >
+          <div className="w-full max-w-3xl bg-surface-container-lowest rounded-3xl shadow-2xl border border-outline-variant/40 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-surface-container-low border-b border-surface-container-high flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-amber-500/20 text-amber-800 flex items-center justify-center shrink-0 shadow-2xs">
+                  <span className="material-symbols-outlined text-2xl font-bold">stars</span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base sm:text-lg font-bold text-on-surface">
+                      Pengaturan Loyalitas &amp; Kategori Member
+                    </h2>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200 text-amber-950">
+                      Model 1
+                    </span>
+                  </div>
+                  <p className="text-xs text-on-surface-variant">
+                    Atur nilai perhitungan poin reward dan syarat akumulasi belanja kenaikan tier member.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsLoyaltyModalOpen(false)}
+                className="w-9 h-9 rounded-xl hover:bg-surface-container text-on-surface-variant hover:text-on-surface flex items-center justify-center cursor-pointer transition-all"
+                title="Tutup Modal"
+              >
+                <span className="material-symbols-outlined text-xl">close</span>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto flex flex-col gap-6">
+              
+              {/* BAGIAN 1: PERHITUNGAN POIN REWARD (EARN & REDEEM) */}
+              <div className="p-5 rounded-2xl bg-surface-container-low border border-outline-variant/30 flex flex-col gap-4">
+                <div className="flex items-center justify-between pb-3 border-b border-surface-container-high">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-xl text-primary font-bold">toll</span>
+                    <h3 className="font-bold text-sm text-on-surface">1. Aturan Perhitungan Poin Reward</h3>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={loyaltyFormEnabled}
+                      onChange={(e) => setLoyaltyFormEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-on-surface">
+                      {loyaltyFormEnabled ? "Program Poin Aktif" : "Program Poin Nonaktif"}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Kelipatan Belanja per 1 Poin */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-on-surface flex items-center justify-between">
+                      <span>Kelipatan Belanja untuk 1 Poin *</span>
+                      <span className="text-[11px] font-mono text-primary font-bold">
+                        {formatCurrency(loyaltyFormSpendPerPoint)}
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">
+                        Rp
+                      </span>
+                      <input
+                        type="number"
+                        min={1000}
+                        step={1000}
+                        value={loyaltyFormSpendPerPoint}
+                        onChange={(e) => setLoyaltyFormSpendPerPoint(Math.max(1000, Number(e.target.value) || 0))}
+                        className="w-full pl-9 pr-3 py-2.5 bg-surface-container-lowest rounded-xl border border-outline-variant/40 text-xs font-bold text-on-surface focus:outline-none focus:border-primary shadow-2xs"
+                      />
+                    </div>
+                    <span className="text-[11px] text-on-surface-variant leading-tight">
+                      Member mendapat 1 Poin setiap pembelanjaan nominal ini (sebelum pajak PB1 &amp; service).
+                    </span>
+                  </div>
+
+                  {/* Nilai 1 Poin saat Penukaran */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-on-surface flex items-center justify-between">
+                      <span>Nilai Tukar 1 Poin ke Rupiah *</span>
+                      <span className="text-[11px] font-mono text-emerald-700 font-bold">
+                        100 Poin = {formatCurrency(loyaltyFormPointValue * 100)}
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">
+                        Rp
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={10}
+                        value={loyaltyFormPointValue}
+                        onChange={(e) => setLoyaltyFormPointValue(Math.max(1, Number(e.target.value) || 0))}
+                        className="w-full pl-9 pr-3 py-2.5 bg-surface-container-lowest rounded-xl border border-outline-variant/40 text-xs font-bold text-on-surface focus:outline-none focus:border-primary shadow-2xs"
+                      />
+                    </div>
+                    <span className="text-[11px] text-on-surface-variant leading-tight">
+                      Nilai potongan kasir untuk setiap 1 poin (contoh: 1 poin = Rp 100 potong nota).
+                    </span>
+                  </div>
+
+                  {/* Minimal Poin untuk Penukaran */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-on-surface">
+                      Minimal Poin untuk Penukaran (Redeem)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={loyaltyFormMinRedeemPoints}
+                      onChange={(e) => setLoyaltyFormMinRedeemPoints(Math.max(1, Number(e.target.value) || 0))}
+                      className="w-full px-3.5 py-2.5 bg-surface-container-lowest rounded-xl border border-outline-variant/40 text-xs font-bold text-on-surface focus:outline-none focus:border-primary shadow-2xs"
+                    />
+                    <span className="text-[11px] text-on-surface-variant leading-tight">
+                      Jumlah minimal poin yang wajib dimiliki member sebelum bisa mulai ditukarkan di kasir.
+                    </span>
+                  </div>
+
+                  {/* Maksimal Potongan Transaksi (%) */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-on-surface">
+                      Maksimal Potongan Transaksi (%)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={loyaltyFormMaxRedeemPercent}
+                        onChange={(e) => setLoyaltyFormMaxRedeemPercent(Math.min(100, Math.max(1, Number(e.target.value) || 0)))}
+                        className="w-full px-3.5 pr-8 py-2.5 bg-surface-container-lowest rounded-xl border border-outline-variant/40 text-xs font-bold text-on-surface focus:outline-none focus:border-primary shadow-2xs"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">
+                        %
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-on-surface-variant leading-tight">
+                      Batas maksimal potongan nota dari penukaran poin (100% = boleh potong seluruh tagihan).
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* BAGIAN 2: SYARAT AMBANG BATAS KATEGORI MEMBER (MODEL 1) */}
+              <div className="p-5 rounded-2xl bg-surface-container-low border border-outline-variant/30 flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-surface-container-high">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-xl text-amber-600 font-bold">workspace_premium</span>
+                    <h3 className="font-bold text-sm text-on-surface">2. Kategori Member (Model 1: Berbasis Total Belanja)</h3>
+                  </div>
+                  <span className="text-[11px] text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full font-bold">
+                    Otomatis Naik Tier
+                  </span>
+                </div>
+
+                <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 text-xs text-blue-900 leading-relaxed flex items-start gap-2">
+                  <span className="material-symbols-outlined text-base text-blue-700 shrink-0 mt-0.5">info</span>
+                  <span>
+                    Pelanggan akan <strong>otomatis naik kategori</strong> saat akumulasi total belanjanya (<em>Total Spend</em>) melewati batas syarat di bawah. Menukarkan poin reward <strong>tidak akan menurunkan status tier</strong> member.
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {loyaltyFormTierRules.map((rule, idx) => {
+                    const isRegular = rule.tierCode.toLowerCase() === "regular";
+                    const isVip = rule.tierCode.toLowerCase() === "vip";
+                    const isGold = rule.tierCode.toLowerCase() === "gold";
+                    const isSilver = rule.tierCode.toLowerCase() === "silver";
+
+                    const badgeStyle = isVip
+                      ? "bg-purple-100 text-purple-900 border-purple-300"
+                      : isGold
+                      ? "bg-amber-100 text-amber-900 border-amber-300"
+                      : isSilver
+                      ? "bg-slate-200 text-slate-800 border-slate-300"
+                      : "bg-emerald-100 text-emerald-900 border-emerald-300";
+
+                    return (
+                      <div
+                        key={rule.tierCode}
+                        className="p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/30 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4"
+                      >
+                        {/* Tier Label */}
+                        <div className="flex items-center gap-2.5 md:w-1/3">
+                          <span className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase border ${badgeStyle}`}>
+                            {rule.tierName}
+                          </span>
+                          <span className="text-[11px] text-on-surface-variant font-medium">
+                            {isRegular ? "Level Awal" : `Level ${idx + 1}`}
+                          </span>
+                        </div>
+
+                        {/* Input Min Spend */}
+                        <div className="flex flex-col gap-1 md:w-1/3">
+                          <label className="text-[11px] font-bold text-on-surface-variant">
+                            Syarat Min. Belanja Akumulatif
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">
+                              Rp
+                            </span>
+                            <input
+                              type="number"
+                              min={0}
+                              step={100000}
+                              value={rule.minSpend}
+                              disabled={isRegular}
+                              onChange={(e) => {
+                                const val = Math.max(0, Number(e.target.value) || 0);
+                                setLoyaltyFormTierRules((prev) =>
+                                  prev.map((r, i) => (i === idx ? { ...r, minSpend: val } : r))
+                                );
+                              }}
+                              className={`w-full pl-9 pr-3 py-2 rounded-xl text-xs font-bold border focus:outline-none shadow-2xs ${
+                                isRegular
+                                  ? "bg-surface-container/50 border-outline-variant/20 text-on-surface-variant cursor-not-allowed"
+                                  : "bg-surface-container-lowest border-outline-variant/40 text-on-surface focus:border-primary"
+                              }`}
+                            />
+                          </div>
+                          <span className="text-[10px] text-on-surface-variant font-mono">
+                            {formatCurrency(rule.minSpend)}
+                          </span>
+                        </div>
+
+                        {/* Input Multiplier Poin */}
+                        <div className="flex flex-col gap-1 md:w-1/4">
+                          <label className="text-[11px] font-bold text-on-surface-variant">
+                            Pengali Poin (Multiplier)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min={0.5}
+                              max={10}
+                              step={0.1}
+                              value={rule.pointMultiplier}
+                              onChange={(e) => {
+                                const val = Math.max(0.1, Number(e.target.value) || 1.0);
+                                setLoyaltyFormTierRules((prev) =>
+                                  prev.map((r, i) => (i === idx ? { ...r, pointMultiplier: val } : r))
+                                );
+                              }}
+                              className="w-full px-3 pr-7 py-2 bg-surface-container-lowest rounded-xl border border-outline-variant/40 text-xs font-bold text-on-surface focus:outline-none focus:border-primary shadow-2xs"
+                            />
+                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">
+                              x
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-emerald-700 font-bold">
+                            {rule.pointMultiplier > 1.0
+                              ? `+${Math.round((rule.pointMultiplier - 1.0) * 100)}% Bonus Poin`
+                              : "Kecepatan Poin Standar"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* BAGIAN 3: SIMULASI HASIL BELANJA (LIVE CALCULATOR PREVIEW) */}
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-300/40 flex flex-col gap-2">
+                <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-base text-amber-700">calculate</span>
+                  <span>Simulasi Perolehan Poin pada Belanja Rp 100.000:</span>
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                  {loyaltyFormTierRules.map((r) => {
+                    const rawPts = Math.floor((100000 / (loyaltyFormSpendPerPoint || 10000)) * (r.pointMultiplier || 1.0));
+                    const valRupiah = rawPts * (loyaltyFormPointValue || 100);
+                    return (
+                      <div key={r.tierCode} className="p-2.5 rounded-xl bg-white border border-amber-200 shadow-2xs text-center flex flex-col">
+                        <span className="text-[10px] font-black uppercase text-slate-700 truncate">{r.tierName}</span>
+                        <span className="text-sm font-black text-amber-800 mt-0.5">+{rawPts} Poin</span>
+                        <span className="text-[10px] text-slate-500 font-mono mt-0.5">Setara Rp {valRupiah.toLocaleString("id-ID")}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-surface-container-low border-t border-surface-container-high flex flex-wrap items-center justify-between gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={handleResetLoyaltyDefaults}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold text-on-surface-variant hover:bg-surface-container flex items-center gap-1.5 cursor-pointer transition-all"
+                title="Kembalikan semua nilai ke standar rekomendasi F&B"
+              >
+                <span className="material-symbols-outlined text-base">restart_alt</span>
+                <span>Reset Standar Rekomendasi</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsLoyaltyModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-on-surface-variant hover:bg-surface-container cursor-pointer transition-all"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveLoyaltySettings}
+                  disabled={isSavingLoyalty}
+                  className="px-6 py-2.5 rounded-xl bg-[#003629] hover:bg-[#00261d] active:scale-95 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-2 shadow-xs cursor-pointer transition-all"
+                >
+                  <span className="material-symbols-outlined text-base">save</span>
+                  <span>{isSavingLoyalty ? "Menyimpan..." : "Simpan Pengaturan Loyalitas"}</span>
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       )}

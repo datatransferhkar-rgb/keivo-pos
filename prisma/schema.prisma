@@ -242,6 +242,12 @@ model RestaurantSetting {
   showFacebook               Boolean  @default(true)
   tiktok                     String?  @default("@pawon.nusantara")
   showTiktok                 Boolean  @default(true)
+  loyaltyProgramEnabled      Boolean  @default(true)
+  loyaltySpendPerPoint       Int      @default(10000)
+  loyaltyPointValue          Int      @default(100)
+  loyaltyMinRedeemPoints     Int      @default(10)
+  loyaltyMaxRedeemPercent    Int      @default(100)
+  loyaltyTierRules           String?  @default("[]")
   updatedAt                  DateTime @updatedAt
 
   @@map("restaurant_settings")
