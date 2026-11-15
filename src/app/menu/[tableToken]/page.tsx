@@ -51,173 +51,7 @@ interface ActiveOrderInfo {
   totalAmount: number;
 }
 
-const DEFAULT_MENU_ITEMS: MenuItemClient[] = [
-  {
-    id: "m-liwet",
-    name: "Nasi Liwet Komplit",
-    category: "Makanan Utama",
-    price: 42000,
-    description:
-      "Nasi liwet gurih beraroma daun salam serai, disajikan dengan ayam goreng lengkuas, tahu, tempe bacem, lalapan, dan sambal terasi terpisah.",
-    imageUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuDoq1vjwcvPAE9zl63bcszNXrgv8xm2nfrkskz41ckSo6sMFocF0mGTPfxZpuMbQB0gh_b3JJHsfw7BlQyCwuCea4vKzAGtXwL7p96H9t-6oiDQocHXSYdQIUtTE_pwr2gL8XHSA5Wpb6wuCX4AtB3PuJImRP3QeLAN8-czs8brfijM3pEm7nKZgq3ramXVIZ223vmO2TQc4TNT1tQi66eCHgK0xxGP5UyKV9EykFt6mBP1X3FADodV",
-    rating: 4.9,
-    reviewsCount: "120+ ulasan",
-    portionTag: "Porsi 1 Orang",
-    cookingTime: "10-15 Menit • Dapur Utama",
-    isAvailable: true,
-  },
-  {
-    id: "m-gurame",
-    name: "Gurame Bakar Cobek (800g)",
-    category: "Lauk & Bakaran",
-    price: 85000,
-    description:
-      "Ikan gurame segar dibakar arang batok kelapa dengan bumbu kecap manis pedas rempah gurih khas Sunda di atas cobek tanah liat.",
-    imageUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuDDVc7CdAQ8LigiRCcEMkQoU_QsK7nR8-IHljRGIIUI7AlQuyoVdgW4AOTPdFP2_lcOMU77nsZbL6qKffpfw9KnjIdSfufuSvJ91Obfbj8ETILKUcazt_UAbKcAE-KT1S86NTwCMEIiZauxG4bkhe7vwQLuK6bMEeRbxJVj6K2RQTn8jnqUXDDaGvzCHQmcSFMHRu14HQPpSq8KrxUyMYKRcDzQFewyO_ip3zGFsM3hZ7665D13YfIn",
-    rating: 4.9,
-    reviewsCount: "250+ ulasan",
-    portionTag: "Porsi 2-3 Orang",
-    cookingTime: "15-20 Menit • Dapur Bakaran",
-    isAvailable: true,
-  },
-  {
-    id: "m-bebek",
-    name: "Bebek Goreng Kremes",
-    category: "Lauk & Bakaran",
-    price: 48000,
-    description:
-      "Bebek presto empuk gurih dengan taburan kremesan renyah, lalapan segar ketimun kemangi dan sambal korek nendang.",
-    imageUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuBpvbcTloGC8TDoT2Y0QCiz38i519oW9pBcOHmAyzqs_6BPMKkvJdwTkyEX364ThCAaqEmGKBBb93SoHDM8vuba2uQQi-4_Br-iMR4njZIhIt3pLQlW2uCrMQ8ctfcZWLUXXvS9YB6gxkNUXh_KH3WBI0IUnerDoJdo5wSYkE6b6YvAzfu7VtUW9kKcmUQHFx5nXHP-qVE9_M7nCLU6gQxrUT8pxSXCjLcWKAXVZyfoUSR1kBsR6ziC",
-    rating: 4.8,
-    reviewsCount: "95+ ulasan",
-    portionTag: "Porsi 1 Orang",
-    cookingTime: "10-15 Menit • Dapur Gorengan",
-    isAvailable: true,
-  },
-  {
-    id: "m-kangkung",
-    name: "Cah Kangkung Belacan",
-    category: "Sayur & Sup",
-    price: 22000,
-    description:
-      "Kangkung segar ditumis api besar dengan wangi terasi belacan khas Bangka, irisan cabai merah keriting dan bawang putih.",
-    imageUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuDryV8NsgdrBwoWd4bo_kCntYJjsNCGCdVPhn0N0b7SJUV2HPO_P6KwjUIBhkOekn-ddAuxl6_B5p6667dLKElHi0dNpEifNKyE2TsDCVQoOAHhIFQkn85ydGYquCuVqJZj_G8VvMd-k9Fvl46F_8EQ0ce8kXyoRqjNeIXzMya-_m5N-onV_4cbJqY9dSSNrR_Q3XMqrC2TCz-HiHksfGjKJdia3j0X63aLryzokgQ1kkLFRHwr0-ot",
-    rating: 4.7,
-    reviewsCount: "80+ ulasan",
-    portionTag: "Porsi 1-2 Orang",
-    cookingTime: "5-10 Menit • Dapur Tumis",
-    isAvailable: true,
-  },
-  {
-    id: "m-es-kelapa",
-    name: "Es Kelapa Muda Batok",
-    category: "Minuman Segar",
-    price: 18000,
-    description:
-      "Kelapa muda utuh asli segar disajikan dingin langsung di batok kelapa dengan gula aren cair terpisah.",
-    imageUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAmSQf5_JMFpYu48FrwCmZqCgGH9g5o4YdJ2DNHPucoNkLAIizR_nWYGuPwRu5L_W9NoDaojSz47rXX367UTLCNkppOdGpHmij5V5nkBM4wFpBObPIU2XZKfpxkcl3bIQpXXi2oavFyhPKl-ElwNfg4fpcQvMw4ZCWHUDlrHsDnGqjXqrnINcIRN0C00EoFfrwn-UapBZ6IGgnALol4YAZuqVhLR-XwGd3J2gpLaoGqrZ5HDbqO2GcD",
-    rating: 4.9,
-    reviewsCount: "190+ ulasan",
-    portionTag: "Minuman 1 Batok",
-    cookingTime: "3-5 Menit • Bar Minuman",
-    isAvailable: true,
-  },
-  {
-    id: "m-sup-buntut",
-    name: "Sup Buntut Spesial",
-    category: "Sayur & Sup",
-    price: 85000,
-    description:
-      "Buntut sapi pilihan dimasak empuk perlahan dengan kaldu bening rempah pala, wortel, kentang & taburan emping goreng.",
-    imageUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuCwZZtiwH8Gt6Oak-1rRqM5H1gdN5jEruzAaxigbv3H-Tre5hdLPjTQvSl4MFAxU27g35TcYPLOVvTK3VAOgAL231GLkTacQbpt2nSuYXHlFNuEwr7wvpBXm9LYTOCHgjdtzCSv3nQiLYFfl9jCtPILQ1mNvxs4c1YxnnJzxjhw6yKA7ohTsygeEsOWi6sKsPVVt8WpCA93muF6xm4y6OOrMXHgpE58_JfV05yGWDaqp3Gw0nZdRydv",
-    rating: 4.9,
-    reviewsCount: "310+ ulasan",
-    portionTag: "Porsi 1-2 Orang",
-    cookingTime: "15 Menit • Dapur Sup",
-    isAvailable: false, // Sample out of stock (Habis)
-  },
-  {
-    id: "m-geprek",
-    name: "Ayam Geprek Sambal Bawang",
-    category: "Lauk & Bakaran",
-    price: 28000,
-    description:
-      "Ayam fillet crispy digeprek dengan cabai rawit pedas segar, bawang putih harum dan minyak kelapa panas.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=600&auto=format&fit=crop&q=80",
-    rating: 4.8,
-    reviewsCount: "140+ ulasan",
-    portionTag: "Porsi 1 Orang",
-    cookingTime: "10-15 Menit • Dapur Gorengan",
-    isAvailable: true,
-  },
-  {
-    id: "m-nasgor",
-    name: "Nasi Goreng Kampung",
-    category: "Makanan Utama",
-    price: 32000,
-    description:
-      "Nasi goreng bumbu terasi tradisional dengan suwiran ayam kampung, telur mata sapi, acar segar dan kerupuk udang.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=600&auto=format&fit=crop&q=80",
-    rating: 4.7,
-    reviewsCount: "115+ ulasan",
-    portionTag: "Porsi 1 Orang",
-    cookingTime: "10 Menit • Dapur Wok",
-    isAvailable: true,
-  },
-  {
-    id: "m-sate",
-    name: "Sate Ayam Madura (10 tsk)",
-    category: "Lauk & Bakaran",
-    price: 35000,
-    description:
-      "10 tusuk sate ayam empuk dibakar arang, dibalur bumbu kacang lembut gurih kental dan kecap manis.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1555126634-323283e090fa?w=600&auto=format&fit=crop&q=80",
-    rating: 4.8,
-    reviewsCount: "88+ ulasan",
-    portionTag: "10 Tusuk",
-    cookingTime: "12-15 Menit • Dapur Bakaran",
-    isAvailable: true,
-  },
-  {
-    id: "m-cendol",
-    name: "Es Cendol Durian",
-    category: "Minuman Segar",
-    price: 25000,
-    description:
-      "Cendol pandan suji berpadu santan gurih, gula kelapa aren lumer, es serut, dan topping daging buah durian legit.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80",
-    rating: 4.9,
-    reviewsCount: "150+ ulasan",
-    portionTag: "Gelas Besar",
-    cookingTime: "3-5 Menit • Bar Minuman",
-    isAvailable: true,
-  },
-  {
-    id: "m-es-teh",
-    name: "Es Teh Manis Melati",
-    category: "Minuman Segar",
-    price: 6000,
-    description: "Seduhan teh daun wangi melati segar disajikan dingin dengan gula pasir murni.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&auto=format&fit=crop&q=80",
-    rating: 4.8,
-    reviewsCount: "350+ ulasan",
-    portionTag: "Gelas Jumbo",
-    cookingTime: "2 Menit • Bar Minuman",
-    isAvailable: true,
-  },
-];
-
+// Menu items dimuat secara murni dari database server (PostgreSQL / SQLite)
 
 function CustomerMenuContent() {
   const params = useParams();
@@ -238,7 +72,19 @@ function CustomerMenuContent() {
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Semua");
-  const [menuItems, setMenuItems] = useState<MenuItemClient[]>(DEFAULT_MENU_ITEMS);
+  const [menuItems, setMenuItems] = useState<MenuItemClient[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = sessionStorage.getItem("dine_in_menu_cache");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
+  const [isMenuLoading, setIsMenuLoading] = useState(true);
 
   // Cart State
   const [cart, setCart] = useState<{ [id: string]: CartItem }>({});
@@ -320,16 +166,15 @@ function CustomerMenuContent() {
       .catch((err) => console.log("Using default table derivation:", err));
   }, [token]);
 
-  // 2. Fetch menu items from API
+  // 2. Fetch menu items from API (murni dari database server)
   useEffect(() => {
     fetch("/api/menu")
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           const items: MenuItemClient[] = [];
           data.forEach((c: any) => {
             c.items?.forEach((it: any) => {
-              const defaultMeta = DEFAULT_MENU_ITEMS.find((d) => d.id === it.id || d.name === it.name);
               let parsedAddons: { id: string; name: string; price: number }[] = [];
               if (Array.isArray(it.addons)) {
                 parsedAddons = it.addons;
@@ -345,24 +190,29 @@ function CustomerMenuContent() {
                 name: it.name,
                 category: c.name,
                 price: it.price,
-                description: it.description || defaultMeta?.description || "",
-                imageUrl: it.imageUrl || defaultMeta?.imageUrl,
+                description: it.description || "",
+                imageUrl: it.imageUrl || "",
                 isAvailable: it.isAvailable !== false,
-                rating: defaultMeta?.rating || 4.8,
-                reviewsCount: defaultMeta?.reviewsCount || "100+ ulasan",
-                portionTag: defaultMeta?.portionTag || "Porsi 1 Orang",
-                cookingTime: defaultMeta?.cookingTime || "10-15 Menit",
+                rating: 4.8,
+                reviewsCount: "100+ ulasan",
+                portionTag: "Porsi 1 Orang",
+                cookingTime: "10-15 Menit",
                 addons: parsedAddons,
               });
             });
           });
 
-          if (items.length > 0) {
-            setMenuItems(items);
-          }
+          setMenuItems(items);
+          setIsMenuLoading(false);
+          try {
+            sessionStorage.setItem("dine_in_menu_cache", JSON.stringify(items));
+          } catch {}
         }
       })
-      .catch((err) => console.log("Using fallback menu items:", err));
+      .catch((err) => {
+        console.error("Gagal memuat menu dari server:", err);
+        setIsMenuLoading(false);
+      });
   }, []);
 
   // 3. Live polling for active order on this table to synchronize Kitchen status
@@ -896,8 +746,23 @@ function CustomerMenuContent() {
             </div>
 
             {/* Menu Item Cards List */}
-            <div className="flex flex-col gap-space-md mb-space-md">
-              {filteredItems.map((item) => {
+            {isMenuLoading && menuItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-12 text-center bg-surface-container-lowest rounded-2xl border border-outline-variant/30 gap-3 my-4 shadow-xs">
+                <div className="w-9 h-9 rounded-full border-3 border-primary border-t-transparent animate-spin" />
+                <div>
+                  <p className="font-bold text-sm text-primary">Memuat Menu Restoran...</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">Mengambil data menu langsung dari database server</p>
+                </div>
+              </div>
+            ) : filteredItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-10 text-center bg-surface-container-lowest rounded-2xl border border-outline-variant/30 gap-2 my-4 shadow-xs">
+                <span className="material-symbols-outlined text-4xl text-outline">search_off</span>
+                <p className="font-bold text-sm text-on-surface">Tidak ada menu yang ditemukan</p>
+                <p className="text-xs text-on-surface-variant">Coba cari dengan kata kunci lain atau pilih kategori Semua</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-space-md mb-space-md">
+                {filteredItems.map((item) => {
                 const inCart = cart[item.id];
                 const inCartQty = inCart?.qty || 0;
                 const isOutOfStock = item.isAvailable === false;
@@ -1041,6 +906,7 @@ function CustomerMenuContent() {
                 );
               })}
             </div>
+          )}
 
             {/* Special Dietary Request Alert */}
             <div className="bg-surface-container rounded-2xl p-space-md flex items-center gap-3 mb-space-lg shadow-xs">

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { formatCurrency } from "@/lib/formatters";
 import { OrderData, RestaurantSettings, MasterProduct, KitchenStatus, ProductAddon, PromoDiscount, Customer, CustomerTier, ProductPromo } from "@/types/pos";
 import { calculateProductPromoPrice } from "@/lib/productPromoHelper";
-import { DEFAULT_CATALOG_PRODUCTS } from "@/lib/catalogData";
 import { useRestaurant } from "@/context/RestaurantContext";
 import {
   sendEscPosToPrinter,
@@ -799,8 +798,20 @@ export function PosWorkspace({
     }
   };
 
-  // Filter & Pencarian Katalog Produk
-  const [catalogProducts, setCatalogProducts] = useState<MasterProduct[]>(DEFAULT_CATALOG_PRODUCTS);
+  // Filter & Pencarian Katalog Produk (Murni dari Database Server, Tanpa Dummy Data)
+  const [catalogProducts, setCatalogProducts] = useState<MasterProduct[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = sessionStorage.getItem("pos_catalog_products_cache");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
+  const [isCatalogLoading, setIsCatalogLoading] = useState<boolean>(true);
   const [catalogCategory, setCatalogCategory] = useState("all");
   const [catalogSearch, setCatalogSearch] = useState("");
   const [selectedDetailProduct, setSelectedDetailProduct] = useState<MasterProduct | null>(null);
@@ -810,11 +821,16 @@ export function PosWorkspace({
       try {
         const res = await fetch("/api/menu-items");
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setCatalogProducts(data);
+          setIsCatalogLoading(false);
+          try {
+            sessionStorage.setItem("pos_catalog_products_cache", JSON.stringify(data));
+          } catch {}
         }
       } catch (err) {
-        console.log("Using fallback catalog products:", err);
+        console.error("Gagal memuat katalog produk dari database:", err);
+        setIsCatalogLoading(false);
       }
     };
     fetchCatalog();
@@ -2953,7 +2969,15 @@ export function PosWorkspace({
                 </span>
               </div>
 
-              {filteredCatalogProducts.length === 0 ? (
+              {isCatalogLoading && catalogProducts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-16 text-center bg-white rounded-2xl border border-slate-200/80 gap-3">
+                  <div className="w-10 h-10 rounded-full border-3 border-emerald-600 border-t-transparent animate-spin" />
+                  <div className="flex flex-col">
+                    <p className="font-bold text-sm text-slate-800">Memuat Katalog Produk Restoran...</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Mengambil data menu langsung dari database server</p>
+                  </div>
+                </div>
+              ) : filteredCatalogProducts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl border border-slate-200/80">
                   <span className="material-symbols-outlined text-4xl text-slate-300 mb-2">search_off</span>
                   <p className="font-bold text-sm text-slate-700">Tidak ada produk yang cocok</p>
@@ -2967,7 +2991,7 @@ export function PosWorkspace({
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5 sm:gap-3">
                   {filteredCatalogProducts.map((prod) => {
                     const promoCalc = calculateProductPromoPrice(prod, productPromos);
                     const enhancedProduct: MasterProduct = promoCalc.isPromo

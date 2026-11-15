@@ -60,6 +60,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json(filtered);
   } catch (error: any) {
+    if (error?.digest === "NEXT_PRERENDER_INTERRUPTED" || error?.message?.includes("bail out of prerendering")) {
+      throw error;
+    }
     console.error("Error fetching menu items:", error);
     return NextResponse.json(
       { error: "Failed to fetch menu items", details: error?.message },

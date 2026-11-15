@@ -33,7 +33,10 @@ export async function GET(request: Request) {
     }));
 
     return NextResponse.json(formatted);
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.digest === "NEXT_PRERENDER_INTERRUPTED" || error?.message?.includes("bail out of prerendering")) {
+      throw error;
+    }
     console.error("Error fetching menu:", error);
     return NextResponse.json({ error: "Failed to fetch menu items" }, { status: 500 });
   }
