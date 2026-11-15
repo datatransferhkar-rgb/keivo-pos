@@ -218,11 +218,6 @@ const DEFAULT_MENU_ITEMS: MenuItemClient[] = [
   },
 ];
 
-const ADD_ON_OPTIONS = [
-  { id: "addon-sambal", name: "Ekstra Sambal Bajak / Terasi", price: 5000 },
-  { id: "addon-lalap", name: "Lalapan Segar Komplit", price: 5000 },
-  { id: "addon-bacem", name: "Tahu & Tempe Bacem Hangat", price: 10000 },
-];
 
 function CustomerMenuContent() {
   const params = useParams();
@@ -335,6 +330,16 @@ function CustomerMenuContent() {
           data.forEach((c: any) => {
             c.items?.forEach((it: any) => {
               const defaultMeta = DEFAULT_MENU_ITEMS.find((d) => d.id === it.id || d.name === it.name);
+              let parsedAddons: { id: string; name: string; price: number }[] = [];
+              if (Array.isArray(it.addons)) {
+                parsedAddons = it.addons;
+              } else if (typeof it.addons === "string") {
+                try {
+                  parsedAddons = JSON.parse(it.addons);
+                } catch {
+                  parsedAddons = [];
+                }
+              }
               items.push({
                 id: it.id,
                 name: it.name,
@@ -347,6 +352,7 @@ function CustomerMenuContent() {
                 reviewsCount: defaultMeta?.reviewsCount || "100+ ulasan",
                 portionTag: defaultMeta?.portionTag || "Porsi 1 Orang",
                 cookingTime: defaultMeta?.cookingTime || "10-15 Menit",
+                addons: parsedAddons,
               });
             });
           });
@@ -524,7 +530,7 @@ function CustomerMenuContent() {
   const subtotal = cartList.reduce((acc, c) => {
     const promoCalc = calculateProductPromoPrice(c.item, productPromos);
     let itemPrice = promoCalc.isPromo ? promoCalc.effectivePrice : c.item.price;
-    const availableAddons = (c.item.addons && c.item.addons.length > 0) ? c.item.addons : ADD_ON_OPTIONS;
+    const availableAddons = c.item.addons || [];
     Object.entries(c.selectedAddOns).forEach(([addonId, isSelected]) => {
       if (isSelected) {
         const addon = availableAddons.find((a: any) => a.id === addonId);
@@ -570,7 +576,7 @@ function CustomerMenuContent() {
           customerName: customerName.trim(),
           tableNumber,
           items: cartList.map((c) => {
-            const availableAddons = (c.item.addons && c.item.addons.length > 0) ? c.item.addons : ADD_ON_OPTIONS;
+            const availableAddons = c.item.addons || [];
             const selectedAddonObjects: any[] = [];
             Object.entries(c.selectedAddOns)
               .filter(([_, sel]) => sel)
@@ -1115,42 +1121,7 @@ function CustomerMenuContent() {
               )}
             </div>
 
-            {/* Campaign Summary Banners (jika ada productPromos aktif) */}
-            {productPromos.length > 0 && (
-              <div className="flex flex-col gap-2">
-                {productPromos.map((pp) => (
-                  <div
-                    key={pp.id}
-                    className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50/50 border border-emerald-200/80 flex items-start gap-3 shadow-2xs"
-                  >
-                    <div className="w-9 h-9 rounded-xl bg-[#003629] text-white flex items-center justify-center shrink-0 shadow-xs">
-                      <span className="material-symbols-outlined text-lg">local_offer</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-bold text-xs text-slate-900">{pp.name}</span>
-                        {pp.badgeLabel && (
-                          <span className="px-1.5 py-0.2 rounded-md bg-amber-400 text-amber-950 font-black text-[9px] uppercase tracking-wider">
-                            {pp.badgeLabel}
-                          </span>
-                        )}
-                      </div>
-                      {pp.description && (
-                        <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
-                          {pp.description}
-                        </p>
-                      )}
-                      {(pp.timeStart && pp.timeEnd) && (
-                        <div className="flex items-center gap-1 mt-1 text-[10px] text-emerald-800 font-semibold">
-                          <span className="material-symbols-outlined text-[13px]">schedule</span>
-                          <span>Jam Promo: {pp.timeStart} - {pp.timeEnd} WIB</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+
 
             {/* Daftar Menu yang Kena Promo Produk */}
             {promoProductsList.length > 0 ? (
@@ -1678,10 +1649,11 @@ function CustomerMenuContent() {
                 <div className="flex flex-col gap-3">
                   {cartList.map((c) => {
                     let unitPrice = c.item.price;
+                    const availableAddons = c.item.addons || [];
                     const addOnsList = Object.entries(c.selectedAddOns)
                       .filter(([_, sel]) => sel)
                       .map(([id]) => {
-                        const addon = ADD_ON_OPTIONS.find((a) => a.id === id);
+                        const addon = availableAddons.find((a: any) => a.id === id);
                         if (addon) unitPrice += addon.price;
                         return addon?.name;
                       })
@@ -2004,42 +1976,41 @@ function CustomerMenuContent() {
                 </p>
               </div>
 
-              {/* Pilihan Pelengkap / Add-ons */}
-              <div className="flex flex-col bg-surface-container-low rounded-xl p-3.5 gap-2.5">
-                <span className="font-label-md text-label-md font-bold text-on-surface">
-                  Pilihan Tambahan / Pelengkap
-                </span>
-                {((selectedItemForDetail.addons && selectedItemForDetail.addons.length > 0)
-                  ? selectedItemForDetail.addons
-                  : ADD_ON_OPTIONS
-                ).map((addon: any) => {
-                  const isChecked = !!detailAddOns[addon.id];
-                  return (
-                    <label
-                      key={addon.id}
-                      className="flex items-center justify-between p-2 rounded-lg bg-surface-container-lowest cursor-pointer active:bg-surface-container transition-colors"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) =>
-                            setDetailAddOns((prev) => ({
-                              ...prev,
-                              [addon.id]: e.target.checked,
-                            }))
-                          }
-                          className="w-4 h-4 rounded text-primary focus:ring-primary"
-                        />
-                        <span className="font-body-sm text-body-sm text-on-surface">{addon.name}</span>
-                      </div>
-                      <span className="font-label-sm text-label-sm text-primary font-bold">
-                        +{formatCurrency(addon.price)}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
+              {/* Pilihan Pelengkap / Add-ons (Hanya ditampilkan jika produk memiliki tambahan di master data) */}
+              {selectedItemForDetail.addons && selectedItemForDetail.addons.length > 0 && (
+                <div className="flex flex-col bg-surface-container-low rounded-xl p-3.5 gap-2.5">
+                  <span className="font-label-md text-label-md font-bold text-on-surface">
+                    Pilihan Tambahan / Pelengkap
+                  </span>
+                  {selectedItemForDetail.addons.map((addon: any) => {
+                    const isChecked = !!detailAddOns[addon.id];
+                    return (
+                      <label
+                        key={addon.id}
+                        className="flex items-center justify-between p-2 rounded-lg bg-surface-container-lowest cursor-pointer active:bg-surface-container transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) =>
+                              setDetailAddOns((prev) => ({
+                                ...prev,
+                                [addon.id]: e.target.checked,
+                              }))
+                            }
+                            className="w-4 h-4 rounded text-primary focus:ring-primary"
+                          />
+                          <span className="font-body-sm text-body-sm text-on-surface">{addon.name}</span>
+                        </div>
+                        <span className="font-label-sm text-label-sm text-primary font-bold">
+                          +{formatCurrency(addon.price)}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Catatan Khusus untuk Dapur */}
               <div className="flex flex-col bg-surface-container-low rounded-xl p-3.5 gap-2">
@@ -2115,9 +2086,7 @@ function CustomerMenuContent() {
                         (detailPrice +
                           Object.entries(detailAddOns).reduce((acc, [id, sel]) => {
                             if (!sel) return acc;
-                            const availableAddons = (selectedItemForDetail.addons && selectedItemForDetail.addons.length > 0)
-                              ? selectedItemForDetail.addons
-                              : ADD_ON_OPTIONS;
+                            const availableAddons = selectedItemForDetail.addons || [];
                             return acc + (availableAddons.find((a: any) => a.id === id)?.price || 0);
                           }, 0)) *
                           detailQty
