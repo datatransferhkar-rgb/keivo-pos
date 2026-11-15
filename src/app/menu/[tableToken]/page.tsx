@@ -60,9 +60,16 @@ function CustomerMenuContent() {
 
   // Navigation tab states: "menu" | "promo" | "pesanan" (Bantuan telah dihilangkan)
   const [activeTab, setActiveTab] = useState<"menu" | "promo" | "pesanan">("menu");
+  const [pesananSubTab, setPesananSubTab] = useState<"cart" | "status">("cart");
 
   // Table state details
-  const [tableNumber, setTableNumber] = useState("Meja 08");
+  const [tableNumber, setTableNumber] = useState(() => {
+    if (token) {
+      const numMatch = token.match(/\d+/);
+      if (numMatch) return `Meja ${numMatch[0].padStart(2, "0")}`;
+    }
+    return "Meja 01";
+  });
   const [tableArea, setTableArea] = useState("Area Indoor AC");
   const [tableCapacity, setTableCapacity] = useState(4);
 
@@ -310,6 +317,7 @@ function CustomerMenuContent() {
   // Cart operations
   const handleQuickAdd = (item: MenuItemClient) => {
     if (item.isAvailable === false) return;
+    setPesananSubTab("cart");
     setCart((prev) => {
       const existing = prev[item.id] || { item, qty: 0, note: "", selectedAddOns: {} };
       return {
@@ -360,6 +368,7 @@ function CustomerMenuContent() {
 
   const handleSaveDetailToCart = () => {
     if (!selectedItemForDetail) return;
+    setPesananSubTab("cart");
     setCart((prev) => ({
       ...prev,
       [selectedItemForDetail.id]: {
@@ -489,6 +498,7 @@ function CustomerMenuContent() {
       setActiveOrder(newActiveOrder);
       setCart({});
       setShowConfirmModal(false);
+      setPesananSubTab("status");
       setActiveTab("pesanan"); // Navigate to live order tracker
     } catch (err: any) {
       setErrorMessage(err.message || "Terjadi kendala saat mengirim pesanan ke dapur.");
@@ -509,11 +519,11 @@ function CustomerMenuContent() {
       {/* 1. STICKY TOP HEADER */}
       <header className="fixed top-0 w-full max-w-md z-50 pt-safe bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-surface-container-high/50">
         <div className="h-16 px-margin flex items-center justify-between gap-space-sm">
-          {activeTab === "pesanan" && !activeOrder ? (
+          {activeTab === "pesanan" && (pesananSubTab === "cart" || !activeOrder) ? (
             <div className="flex items-center gap-space-sm min-w-0">
               <button
                 aria-label="Kembali ke Menu"
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-low text-on-surface active:scale-95 transition-all flex-shrink-0"
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-low text-on-surface active:scale-95 transition-all flex-shrink-0 cursor-pointer"
                 onClick={() => setActiveTab("menu")}
                 type="button"
               >
@@ -548,11 +558,15 @@ function CustomerMenuContent() {
             </div>
           )}
 
-          {/* Quick Header Action (Cart icon if on menu tab) */}
-          {activeTab === "menu" && totalItemCount > 0 && (
+          {/* Quick Header Action (Cart icon always accessible if items in cart) */}
+          {totalItemCount > 0 && activeTab !== "pesanan" && (
             <button
-              onClick={() => setActiveTab("pesanan")}
-              className="relative w-10 h-10 rounded-full bg-primary-fixed text-on-primary-fixed-variant flex items-center justify-center active:scale-95 transition-transform"
+              onClick={() => {
+                setActiveTab("pesanan");
+                setPesananSubTab("cart");
+              }}
+              className="relative w-10 h-10 rounded-full bg-primary-fixed text-on-primary-fixed-variant flex items-center justify-center active:scale-95 transition-transform cursor-pointer"
+              title="Lihat Keranjang & Submit"
             >
               <span className="material-symbols-outlined text-[20px]">shopping_bag</span>
               <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-secondary-container text-on-secondary-container text-[11px] font-bold flex items-center justify-center shadow-xs">
@@ -951,11 +965,14 @@ function CustomerMenuContent() {
                     </div>
                   </div>
                   <button
-                    className="h-11 px-4 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-bold shadow-md flex items-center gap-1.5 active:scale-95 transition-all flex-shrink-0 hover:bg-primary-container"
-                    onClick={() => setActiveTab("pesanan")}
+                    className="h-11 px-4 rounded-xl bg-[#003629] text-white font-label-md text-label-md font-bold shadow-md flex items-center gap-1.5 active:scale-95 transition-all flex-shrink-0 hover:bg-[#00261d] cursor-pointer"
+                    onClick={() => {
+                      setActiveTab("pesanan");
+                      setPesananSubTab("cart");
+                    }}
                     type="button"
                   >
-                    <span>Lihat Keranjang</span>
+                    <span>Submit Pesanan</span>
                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                   </button>
                 </div>
@@ -1130,7 +1147,7 @@ function CustomerMenuContent() {
             )}
 
             {/* Sticky Floating Mini Cart if items in cart */}
-            {totalItemCount > 0 && !activeOrder && (
+            {totalItemCount > 0 && (
               <div className="fixed bottom-20 left-0 right-0 max-w-md mx-auto px-4 z-30 pointer-events-none">
                 <div className="pointer-events-auto bg-[#003629] text-white rounded-2xl p-3 shadow-xl flex items-center justify-between border border-emerald-800/40 animate-in slide-in-from-bottom-2 duration-150">
                   <div className="flex items-center gap-3 pl-1">
@@ -1144,10 +1161,13 @@ function CustomerMenuContent() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setActiveTab("pesanan")}
+                    onClick={() => {
+                      setActiveTab("pesanan");
+                      setPesananSubTab("cart");
+                    }}
                     className="px-4 py-2 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold text-xs shadow-xs active:scale-95 flex items-center gap-1.5 transition-all cursor-pointer"
                   >
-                    <span>Lihat Keranjang</span>
+                    <span>Submit Pesanan</span>
                     <span className="material-symbols-outlined text-sm">arrow_forward</span>
                   </button>
                 </div>
@@ -1162,8 +1182,49 @@ function CustomerMenuContent() {
         {/* ============================================================== */}
         {activeTab === "pesanan" && (
           <div className="flex flex-col w-full pb-8">
-            {/* IF ACTIVE ORDER IS CURRENTLY PLACED -> SHOW KDS LIVE TRACKER */}
-            {activeOrder ? (
+            {/* SUB-TAB TOGGLE: JIKA SUDAH ADA PESANAN AKTIF SEBELUMNYA */}
+            {activeOrder && (
+              <div className="flex items-center gap-1.5 p-1 bg-surface-container rounded-2xl mb-4 shrink-0 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setPesananSubTab("cart")}
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    pesananSubTab === "cart"
+                      ? "bg-[#003629] text-white shadow-xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">shopping_cart</span>
+                  <span>Keranjang Baru</span>
+                  {cartList.length > 0 && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-black leading-none ${
+                        pesananSubTab === "cart" ? "bg-white text-[#003629]" : "bg-[#003629] text-white"
+                      }`}
+                    >
+                      {totalItemCount}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPesananSubTab("status")}
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    pesananSubTab === "status"
+                      ? "bg-[#003629] text-white shadow-xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">skillet</span>
+                  <span>Status Dapur</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                </button>
+              </div>
+            )}
+
+            {/* VIEW 1: KDS LIVE TRACKER (Status Pemrosesan Koki) */}
+            {activeOrder && (pesananSubTab === "status" || cartList.length === 0) ? (
               <div className="flex flex-col w-full space-y-4 pt-2">
                 {/* Top Success Feedback Card */}
                 <div className="relative overflow-hidden rounded-2xl bg-surface-container-lowest p-space-md shadow-sm border border-outline-variant/30">
@@ -1410,15 +1471,32 @@ function CustomerMenuContent() {
                   </div>
                 </div>
 
-                {/* Additional Order Button */}
-                <button
-                  onClick={() => setActiveTab("menu")}
-                  className="w-full h-12 rounded-xl bg-primary text-on-primary font-label-lg text-label-lg font-bold flex items-center justify-center gap-space-xs shadow-md active:scale-[0.98] transition-transform"
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-[20px]">add_circle</span>
-                  <span>+ Pesan Menu Tambahan ke {tableNumber}</span>
-                </button>
+                {/* Action Buttons: Keranjang Baru vs Pesan Menu Tambahan */}
+                {cartList.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setPesananSubTab("cart")}
+                    className="w-full h-12 rounded-xl bg-[#003629] text-white font-bold text-xs sm:text-sm flex items-center justify-between px-4 shadow-md active:scale-[0.99] transition-all cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-lg">shopping_cart</span>
+                      <span>Ada {totalItemCount} Menu Baru di Keranjang</span>
+                    </div>
+                    <span className="flex items-center gap-1 font-bold">
+                      <span>Lihat &amp; Submit</span>
+                      <span className="material-symbols-outlined text-base">arrow_forward</span>
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setActiveTab("menu")}
+                    className="w-full h-12 rounded-xl bg-[#003629] text-white font-label-lg text-label-lg font-bold flex items-center justify-center gap-space-xs shadow-md active:scale-[0.98] transition-transform cursor-pointer"
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">add_circle</span>
+                    <span>+ Pesan Menu Tambahan ke {tableNumber}</span>
+                  </button>
+                )}
               </div>
             ) : cartList.length === 0 ? (
               /* EMPTY CART STATE */
@@ -1434,7 +1512,7 @@ function CustomerMenuContent() {
                 </p>
                 <button
                   onClick={() => setActiveTab("menu")}
-                  className="mt-4 px-6 py-2.5 rounded-xl bg-primary text-on-primary font-bold font-label-md text-label-md shadow-xs active:scale-95"
+                  className="mt-4 px-6 py-2.5 rounded-xl bg-[#003629] text-white font-bold font-label-md text-label-md shadow-xs active:scale-95 cursor-pointer"
                 >
                   Buka Katalog Menu
                 </button>
@@ -1477,25 +1555,54 @@ function CustomerMenuContent() {
                   </div>
                 </section>
 
-                {/* Customer Name Banner if not filled */}
-                {!customerName.trim() && (
-                  <div className="mb-4 p-3.5 bg-error-container text-on-error-container rounded-xl flex flex-col gap-2 shadow-xs">
-                    <div className="flex items-center gap-1.5 font-bold text-xs">
-                      <span className="material-symbols-outlined text-[18px]">error</span>
-                      <span>Harap masukkan Nama Pemesan sebelum mengirim pesanan:</span>
-                    </div>
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={(e) => {
-                        setCustomerName(e.target.value);
-                        if (errorMessage) setErrorMessage("");
-                      }}
-                      placeholder="Nama Pemesan (misal: Bpk. Hendra)..."
-                      className="w-full px-3 py-2 rounded-lg bg-surface-container-lowest text-on-surface font-semibold focus:outline-none"
-                    />
+                {/* Customer Name Banner in Cart (Mandatory) */}
+                <div
+                  className={`mb-4 p-3.5 rounded-2xl flex flex-col gap-2 shadow-2xs border transition-colors ${
+                    !customerName.trim()
+                      ? "bg-rose-50 border-rose-300 text-rose-950"
+                      : "bg-surface-container-low border-outline-variant/30 text-on-surface"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <label
+                      htmlFor="customer-name-cart-input"
+                      className="flex items-center gap-1.5 font-bold text-xs cursor-pointer"
+                    >
+                      <span
+                        className={`material-symbols-outlined text-[18px] ${
+                          !customerName.trim() ? "text-rose-600" : "text-primary"
+                        }`}
+                      >
+                        person
+                      </span>
+                      <span>Nama Pemesan / Tamu *:</span>
+                    </label>
+                    {!customerName.trim() ? (
+                      <span className="text-[10px] font-black text-rose-600 uppercase tracking-wider bg-rose-100 px-2 py-0.5 rounded-full">
+                        Wajib Diisi
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                        ✓ Terisi
+                      </span>
+                    )}
                   </div>
-                )}
+                  <input
+                    id="customer-name-cart-input"
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => {
+                      setCustomerName(e.target.value);
+                      if (errorMessage) setErrorMessage("");
+                    }}
+                    placeholder="Ketik nama Anda (misal: Bpk. Hendra)..."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-lowest text-on-surface placeholder:text-outline font-semibold focus:outline-none focus:ring-2 focus:ring-primary shadow-xs border border-outline-variant/40 text-xs sm:text-sm"
+                  />
+                  <p className="text-[11px] text-on-surface-variant flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[13px] text-primary">info</span>
+                    <span>Koki dapur akan menyiapkan pesanan atas nama ini untuk {tableNumber}.</span>
+                  </p>
+                </div>
 
                 {/* Section Header */}
                 <div className="flex items-center justify-between mb-3 px-1">
@@ -1723,13 +1830,19 @@ function CustomerMenuContent() {
                   </div>
                 </div>
 
-                {/* Floating Sticky Checkout Action Bar */}
-                <div className="fixed bottom-0 left-0 right-0 p-margin bg-surface/95 backdrop-blur-xl shadow-[0_-4px_16px_rgba(0,0,0,0.06)] z-40 pb-safe max-w-md mx-auto">
+                {/* Floating Sticky Checkout Action Bar with Large Submit Button */}
+                <div className="fixed bottom-0 left-0 right-0 p-3 bg-surface/95 backdrop-blur-xl shadow-[0_-4px_20px_rgba(0,0,0,0.12)] z-50 pb-safe max-w-md mx-auto border-t border-surface-container-high/60">
                   <button
-                    className="w-full h-14 bg-primary text-on-primary rounded-xl flex items-center justify-between px-space-lg shadow-md active:bg-primary-container active:scale-[0.99] transition-all"
+                    id="btn-submit-dine-in-order"
+                    className="w-full h-14 bg-[#003629] text-white rounded-2xl flex items-center justify-between px-4 sm:px-5 shadow-lg active:bg-emerald-950 active:scale-[0.99] transition-all cursor-pointer font-bold"
                     onClick={() => {
                       if (!customerName.trim()) {
                         setErrorMessage("Harap isi Nama Pemesan di atas terlebih dahulu!");
+                        const nameInput = document.getElementById("customer-name-cart-input");
+                        if (nameInput) {
+                          nameInput.focus();
+                          nameInput.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }
                         return;
                       }
                       setShowConfirmModal(true);
@@ -1737,16 +1850,18 @@ function CustomerMenuContent() {
                     type="button"
                   >
                     <div className="flex flex-col items-start text-left">
-                      <span className="font-label-lg text-label-lg font-bold flex items-center gap-1.5">
-                        Konfirmasi Pesanan
+                      <span className="font-extrabold text-sm sm:text-base flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-lg">restaurant</span>
+                        Submit Pesanan ke Dapur
                       </span>
-                      <span className="font-label-sm text-label-sm text-on-primary/80">
-                        {tableNumber} • Total {formatCurrency(grandTotal)}
+                      <span className="text-[11px] text-emerald-200">
+                        {tableNumber} • {totalItemCount} Item • Total {formatCurrency(grandTotal)}
                       </span>
                     </div>
-                    <div className="w-9 h-9 rounded-full bg-primary-fixed/20 flex items-center justify-center shrink-0">
+                    <div className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-colors shadow-2xs">
+                      <span>Kirim</span>
                       <span
-                        className="material-symbols-outlined text-[22px]"
+                        className="material-symbols-outlined text-base"
                         style={{ fontVariationSettings: '"FILL" 1' }}
                       >
                         send
@@ -1988,10 +2103,10 @@ function CustomerMenuContent() {
             </div>
             <div className="text-center">
               <h3 className="font-headline-sm text-headline-sm font-bold text-on-surface">
-                Apakah Pesanan Anda Sudah Sesuai?
+                Submit Pesanan ke Dapur?
               </h3>
               <p className="font-body-sm text-body-sm text-on-surface-variant mt-1.5 leading-relaxed">
-                Pilihan menu {tableNumber} ({totalItemCount} porsi) atas nama <strong>{customerName}</strong> akan segera kami proses. Mohon periksa kembali agar pesanan Anda tepat.
+                Pilihan menu {tableNumber} ({totalItemCount} porsi) atas nama <strong>{customerName}</strong> ({formatCurrency(grandTotal)}) akan langsung dikirim ke sistem dapur koki. Mohon periksa kembali agar pesanan Anda tepat.
               </p>
             </div>
 
@@ -2005,18 +2120,18 @@ function CustomerMenuContent() {
               <button
                 disabled={isSubmitting}
                 onClick={handleProcessOrder}
-                className="w-full h-12 bg-primary text-on-primary font-label-lg text-label-lg font-bold rounded-xl shadow active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                className="w-full h-12 bg-[#003629] text-white font-label-lg text-label-lg font-bold rounded-xl shadow active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                 type="button"
               >
                 {isSubmitting ? (
                   <>
                     <span className="material-symbols-outlined text-[18px] animate-spin">refresh</span>
-                    <span>Memproses Pesanan...</span>
+                    <span>Mengirim ke Dapur...</span>
                   </>
                 ) : (
                   <>
-                    <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                    <span>Ya, Pesanan Sudah Sesuai</span>
+                    <span className="material-symbols-outlined text-[18px]">send</span>
+                    <span>Ya, Kirim Pesanan Sekarang</span>
                   </>
                 )}
               </button>
@@ -2034,9 +2149,9 @@ function CustomerMenuContent() {
       )}
 
       {/* ============================================================== */}
-      {/* 5. BOTTOM NAVIGATION BAR (Hidden during active checkout) */}
+      {/* 5. BOTTOM NAVIGATION BAR (Hidden during active cart checkout) */}
       {/* ============================================================== */}
-      {!(activeTab === "pesanan" && !activeOrder && cartList.length > 0) && (
+      {!(activeTab === "pesanan" && ((pesananSubTab === "cart" && cartList.length > 0) || (!activeOrder && cartList.length > 0))) && (
         <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto w-full z-40 pb-safe bg-surface/95 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.05)] border-t border-surface-container-high">
         <div className="flex justify-around items-center h-16 px-space-sm">
           <button
@@ -2077,7 +2192,10 @@ function CustomerMenuContent() {
           </button>
 
           <button
-            onClick={() => setActiveTab("pesanan")}
+            onClick={() => {
+              setActiveTab("pesanan");
+              if (cartList.length > 0) setPesananSubTab("cart");
+            }}
             className={`relative flex flex-col items-center justify-center gap-0.5 w-16 h-12 transition-colors ${
               activeTab === "pesanan" ? "text-primary font-bold" : "text-on-surface-variant hover:text-on-surface"
             }`}
@@ -2089,14 +2207,13 @@ function CustomerMenuContent() {
             >
               receipt_long
             </span>
-            {totalItemCount > 0 && !activeOrder && (
+            {totalItemCount > 0 ? (
               <span className="absolute top-1 right-3 w-4 h-4 rounded-full bg-secondary-container text-on-secondary-container text-[10px] font-bold flex items-center justify-center">
                 {totalItemCount}
               </span>
-            )}
-            {activeOrder && (
+            ) : activeOrder ? (
               <span className="absolute top-1.5 right-3.5 w-2.5 h-2.5 rounded-full bg-on-tertiary-container animate-pulse"></span>
-            )}
+            ) : null}
             <span className="font-label-md text-[11px]">Pesanan</span>
           </button>
         </div>
