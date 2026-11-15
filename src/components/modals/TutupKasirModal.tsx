@@ -244,7 +244,7 @@ export function TutupKasirModal({
 
     setIsSubmitting(true);
     try {
-      // Send close shift to API
+      // Send close shift to API with replacement cashier info
       await fetch("/api/shifts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -252,6 +252,9 @@ export function TutupKasirModal({
           action: "close_shift",
           physicalCashAmount: countedCash,
           discrepancyNotes: notes.trim() || undefined,
+          replacementUserId: selectedReplacement.id,
+          replacementUserName: selectedReplacement.name,
+          replacementUserUsername: selectedReplacement.username,
         }),
       });
 

@@ -342,6 +342,84 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
         setSettings((prev) => ({ ...prev, printers: parsed }));
       }
     } catch { /* ignore */ }
+
+    // Live synchronization of active cashier shift from database across all devices
+    const syncActiveShiftFromApi = async () => {
+      try {
+        const res = await fetch(`/api/shifts?_t=${Date.now()}`, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+        });
+        const data = await res.json();
+        if (data && data.sessionId && data.cashierId) {
+          const shiftOwner =
+            usersList.find((u) => u.id === data.cashierId) ||
+            DEFAULT_USERS.find((u) => u.id === data.cashierId) ||
+            usersList.find((u) => u.name.toLowerCase() === data.cashierName?.toLowerCase()) ||
+            DEFAULT_USERS.find((u) => u.name.toLowerCase() === data.cashierName?.toLowerCase());
+
+          const syncedShift: ActiveCashierShift = {
+            cashierId: data.cashierId,
+            cashierName: data.cashierName || shiftOwner?.name || "Kasir Restoran",
+            cashierUsername: shiftOwner?.username || "kasir",
+            openedAt: data.openedAt || new Date().toISOString(),
+            status: (data.status as "open" | "closed") || "open",
+          };
+
+          setActiveCashierShift(syncedShift);
+          localStorage.setItem("keivo_pos_active_shift", JSON.stringify(syncedShift));
+
+          // Jika perangkat ini sedang login sebagai kasir biasa, otomatis sinkronkan ke kasir shift aktif di database!
+          const currentCachedRaw = localStorage.getItem("keivo_pos_active_user");
+          let cachedRole = "kasir";
+          let cachedId = "";
+          if (currentCachedRaw) {
+            try {
+              const parsed = JSON.parse(currentCachedRaw);
+              cachedRole = parsed.role;
+              cachedId = parsed.id;
+            } catch (e) {}
+          }
+
+          if (cachedRole === "kasir" && shiftOwner && cachedId !== shiftOwner.id) {
+            setCurrentUser(shiftOwner);
+            localStorage.setItem("keivo_pos_active_user", JSON.stringify(shiftOwner));
+          }
+        }
+      } catch (err) {
+        // network / offline handling
+      }
+    };
+
+    syncActiveShiftFromApi();
+    const shiftInterval = setInterval(syncActiveShiftFromApi, 2500);
+
+    const handleFocus = () => syncActiveShiftFromApi();
+    window.addEventListener("focus", handleFocus);
+
+    let bcShift: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        bcShift = new BroadcastChannel("keivo_pos_shift_sync");
+        bcShift.onmessage = () => {
+          syncActiveShiftFromApi();
+        };
+      }
+    } catch (e) {}
+
+    const handleStorageShift = (e: StorageEvent) => {
+      if (e.key === "keivo_pos_shift_sync_trigger") {
+        syncActiveShiftFromApi();
+      }
+    };
+    window.addEventListener("storage", handleStorageShift);
+
+    return () => {
+      clearInterval(shiftInterval);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("storage", handleStorageShift);
+      if (bcShift) bcShift.close();
+    };
   }, []);
 
   const updateSettings = async (newSettings: Partial<RestaurantSettings>): Promise<boolean> => {
@@ -485,6 +563,17 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
       setActiveCashierShift(closed);
       localStorage.setItem("keivo_pos_active_shift", JSON.stringify(closed));
     }
+
+    try {
+      if (typeof window !== "undefined") {
+        if ("BroadcastChannel" in window) {
+          const bc = new BroadcastChannel("keivo_pos_shift_sync");
+          bc.postMessage({ type: "shift_updated", replacementUser });
+          bc.close();
+        }
+        localStorage.setItem("keivo_pos_shift_sync_trigger", Date.now().toString());
+      }
+    } catch (e) {}
   };
 
   const login = (

@@ -79,16 +79,20 @@ export function LoginWorkspace({ onLoginSuccess }: LoginWorkspaceProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // Sync selected user if not initialized yet
+  // Sync selected user when active cashier shift changes or on initial load
   useEffect(() => {
-    if (!selectedUser && usersList.length > 0) {
-      if (activeCashierShift && activeCashierShift.status === "open") {
-        const shiftOwner = usersList.find((u) => u.id === activeCashierShift.cashierId);
-        if (shiftOwner) {
+    if (activeCashierShift && activeCashierShift.status === "open") {
+      const shiftOwner = usersList.find((u) => u.id === activeCashierShift.cashierId);
+      if (shiftOwner) {
+        if (!selectedUser || (selectedUser.role === "kasir" && selectedUser.id !== shiftOwner.id)) {
           setSelectedUser(shiftOwner);
+          setPin("");
+          setErrorMsg("");
           return;
         }
       }
+    }
+    if (!selectedUser && usersList.length > 0) {
       const defaultKasir = usersList.find((u) => u.role === "kasir");
       setSelectedUser(defaultKasir || usersList[0]);
     }

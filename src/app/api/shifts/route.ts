@@ -70,6 +70,7 @@ export async function GET() {
       {
         sessionId: session.id,
         sessionNumber: `Shift #${shiftDisplayNumber}`,
+        cashierId: session.cashierId,
         cashierName: session.cashierName,
         openedAt: session.startedAt,
         openingCash: session.openingCashAmount,
@@ -77,6 +78,7 @@ export async function GET() {
         cashOutTotal,
         cashMovements: sortedMovements,
         drawerEstimate: session.openingCashAmount - cashOutTotal,
+        status: session.status,
       },
       {
         headers: {
@@ -153,9 +155,28 @@ export async function POST(request: Request) {
         },
       });
 
+      // Otomatis buka sesi shift baru untuk kasir pengganti di database
+      let newSession = null;
+      if (body.replacementUserId) {
+        const nextSessionNumber = await generateNextShiftNumber();
+        newSession = await db.cashierSession.create({
+          data: {
+            sessionNumber: nextSessionNumber,
+            cashierId: body.replacementUserId,
+            cashierName: body.replacementUserName || "Kasir Restoran",
+            openingCashAmount: closingPhysical > 0 ? closingPhysical : 500000,
+            status: "open",
+          },
+          include: {
+            cashMovements: true,
+          },
+        });
+      }
+
       return NextResponse.json({
         success: true,
         closed,
+        newSession,
         discrepancy,
       });
     } else if (action === "delete_cash_movement") {
