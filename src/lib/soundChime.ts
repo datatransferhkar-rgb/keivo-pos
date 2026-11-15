@@ -4,7 +4,7 @@
 let audioCtx: AudioContext | null = null;
 const SOUND_STORAGE_KEY = "keivo_pos_sound_enabled";
 
-function getAudioContext(): AudioContext | null {
+export function getAudioContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
   try {
     if (!audioCtx) {
@@ -117,6 +117,38 @@ export function playOrderChime(): void {
 }
 
 /**
+ * Plays a cheerful 3-tone chime for Food Ready / Waiter Dispatch
+ * E5 (659.25Hz) -> G#5 (830.61Hz) -> B5 (987.77Hz)
+ */
+export function playReadyDispatchChime(): void {
+  if (!isSoundEnabled()) return;
+
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+
+    const frequencies = [659.25, 830.61, 987.77];
+    frequencies.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      const startAt = ctx.currentTime + i * 0.11;
+      osc.frequency.setValueAtTime(freq, startAt);
+      gain.gain.setValueAtTime(0.001, startAt);
+      gain.gain.exponentialRampToValueAtTime(0.32, startAt + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.48);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startAt);
+      osc.stop(startAt + 0.48);
+    });
+  } catch (err) {
+    console.warn("Could not play ready dispatch chime:", err);
+  }
+}
+
+/**
  * Plays a short, soft confirmation tone (for table move, payment, or settings)
  */
 export function playSuccessChime(): void {
@@ -134,7 +166,7 @@ export function playSuccessChime(): void {
     osc.frequency.setValueAtTime(523.25, now); // C5
     osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.12); // E5
     gain.gain.setValueAtTime(0.01, now);
-    gain.gain.exponentialRampToValueAtTime(0.2, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.25, now + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
     osc.connect(gain);
     gain.connect(ctx.destination);
@@ -142,6 +174,49 @@ export function playSuccessChime(): void {
     osc.stop(now + 0.35);
   } catch (err) {
     console.warn("Could not play success chime:", err);
+  }
+}
+
+/**
+ * Plays a short, gentle click feedback for button interactions
+ */
+export function playClickChime(): void {
+  if (!isSoundEnabled()) return;
+
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(700, now);
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.exponentialRampToValueAtTime(0.08, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.08);
+  } catch (err) {
+    // ignore
+  }
+}
+
+/**
+ * Universal helper to play chimes across KDS, POS, and Table Monitor
+ */
+export function playChime(type: "new_order" | "ready_dispatch" | "click" | "success"): void {
+  if (type === "new_order") {
+    playOrderChime();
+  } else if (type === "ready_dispatch") {
+    playReadyDispatchChime();
+  } else if (type === "click") {
+    playClickChime();
+  } else if (type === "success") {
+    playSuccessChime();
   }
 }
 

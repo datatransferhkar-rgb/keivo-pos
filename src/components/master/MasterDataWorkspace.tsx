@@ -1668,36 +1668,39 @@ export function MasterDataWorkspace() {
     const description = fd.get("description") as string;
     const isAvailable = fd.get("isAvailable") === "on";
 
-    // Validasi Foto Produk:
-    if (productModal.mode === "add" && !productImage.trim()) {
-      setImageError("Foto produk wajib diunggah untuk penambahan produk manual!");
-      return;
-    }
+    const defaultPlaceholderImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300&auto=format&fit=crop&q=80";
+    const finalImage = productImage.trim() || defaultPlaceholderImage;
 
     if (productModal.mode === "add") {
       const newP: MasterProduct = {
-        id: `prod-${Date.now()}`,
+        id: `m-${Date.now()}`,
         code: code || `PRD-${products.length + 1}`,
         name,
         category,
         price,
         description,
         isAvailable,
-        imageUrl: productImage.trim() || undefined,
-        image: productImage.trim() || undefined,
+        imageUrl: finalImage,
+        image: finalImage,
         addons: productAddons,
       };
       setProducts((prev) => [newP, ...prev]);
 
       try {
-        await fetch("/api/menu-items", {
+        const res = await fetch("/api/menu-items", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(newP),
         });
-        loadDataFromDb();
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          alert(`Gagal menyimpan produk: ${errData.error || errData.details || "Terjadi kesalahan server"}`);
+        } else {
+          loadDataFromDb();
+        }
       } catch (err) {
         console.error("Failed to save product to database:", err);
+        alert("Gagal menghubungi server database!");
       }
     } else if (productModal.data) {
       const updatedP = {
@@ -1708,8 +1711,8 @@ export function MasterDataWorkspace() {
         price,
         description,
         isAvailable,
-        imageUrl: productImage.trim() || productModal.data.imageUrl || undefined,
-        image: productImage.trim() || productModal.data.image || undefined,
+        imageUrl: productImage.trim() || productModal.data.imageUrl || finalImage,
+        image: productImage.trim() || productModal.data.image || finalImage,
         addons: productAddons,
       };
 
@@ -1722,14 +1725,20 @@ export function MasterDataWorkspace() {
       );
 
       try {
-        await fetch("/api/menu-items", {
+        const res = await fetch("/api/menu-items", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updatedP),
         });
-        loadDataFromDb();
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          alert(`Gagal memperbarui produk: ${errData.error || errData.details || "Terjadi kesalahan server"}`);
+        } else {
+          loadDataFromDb();
+        }
       } catch (err) {
         console.error("Failed to update product in database:", err);
+        alert("Gagal menghubungi server database!");
       }
     }
     setProductModal({ isOpen: false, mode: "add" });

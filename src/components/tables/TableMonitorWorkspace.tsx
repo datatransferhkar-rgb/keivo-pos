@@ -4,62 +4,13 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { OrderData, KitchenStatus } from "@/types/pos";
 import { useRestaurant } from "@/context/RestaurantContext";
 import { formatCurrency } from "@/lib/formatters";
+import { playChime, unlockAudioContext } from "@/lib/soundChime";
 
 interface TableMonitorWorkspaceProps {
   orders?: OrderData[];
   onNavigateHome?: () => void;
   onOpenPos?: () => void;
   onUpdateOrderStatus?: (orderId: string, status: KitchenStatus) => void;
-}
-
-// Sound Synthesizer via Web Audio API (no external asset needed)
-function playChime(type: "new_order" | "ready_dispatch" | "click") {
-  if (typeof window === "undefined") return;
-  try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-
-    if (type === "new_order") {
-      const osc1 = ctx.createOscillator();
-      const gain1 = ctx.createGain();
-      osc1.type = "sine";
-      osc1.frequency.setValueAtTime(440, ctx.currentTime);
-      osc1.frequency.setValueAtTime(554.37, ctx.currentTime + 0.15);
-      gain1.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
-      osc1.connect(gain1);
-      gain1.connect(ctx.destination);
-      osc1.start();
-      osc1.stop(ctx.currentTime + 0.45);
-    } else if (type === "ready_dispatch") {
-      [659.25, 830.61, 987.77].forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.1);
-        gain.gain.setValueAtTime(0.35, ctx.currentTime + i * 0.1);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.1 + 0.5);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(ctx.currentTime + i * 0.1);
-        osc.stop(ctx.currentTime + i * 0.1 + 0.5);
-      });
-    } else {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(700, ctx.currentTime);
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.08);
-    }
-  } catch (e) {
-    // Audio context policy
-  }
 }
 
 // Channel Styling Helper: Dine In = Blue, Take Away = Amber, Ojol = Emerald
@@ -205,7 +156,19 @@ export function TableMonitorWorkspace({
   };
 
   const isPrivileged = ["owner", "admin", "manager"].includes(currentUser.role);
-  const prevReadyCountRef = useRef<number>(0);
+  const knownReadyOrderIdsRef = useRef<Set<string>>(new Set());
+  const isInitialReadyLoadRef = useRef<boolean>(true);
+
+  // One-time audio context unlocker for iPad Safari & Chrome mobile
+  useEffect(() => {
+    const handleUnlock = () => unlockAudioContext();
+    window.addEventListener("pointerdown", handleUnlock, { once: true });
+    window.addEventListener("touchstart", handleUnlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", handleUnlock);
+      window.removeEventListener("touchstart", handleUnlock);
+    };
+  }, []);
 
   // Live Clock updater
   useEffect(() => {
@@ -236,14 +199,23 @@ export function TableMonitorWorkspace({
       const data = await res.json();
       if (Array.isArray(data)) {
         const readyOrders = data.filter((o) => o.kitchenStatus === "ready");
-        if (
-          soundEnabled &&
-          prevReadyCountRef.current > 0 &&
-          readyOrders.length > prevReadyCountRef.current
-        ) {
-          playChime("new_order");
+
+        if (isInitialReadyLoadRef.current) {
+          knownReadyOrderIdsRef.current = new Set(readyOrders.map((o) => o.id));
+          isInitialReadyLoadRef.current = false;
+        } else {
+          const freshlyReady = readyOrders.filter((o) => !knownReadyOrderIdsRef.current.has(o.id));
+          if (freshlyReady.length > 0) {
+            freshlyReady.forEach((o) => knownReadyOrderIdsRef.current.add(o.id));
+            if (soundEnabled) {
+              playChime("ready_dispatch");
+            }
+            const first = freshlyReady[0];
+            const targetLabel = first.tableOrGuest || "Meja Tamu";
+            triggerToast(`🔔 Makanan untuk ${targetLabel} Siap Saji! Silakan disajikan.`);
+          }
         }
-        prevReadyCountRef.current = readyOrders.length;
+
         setAllOrders(data);
       }
     } catch (err) {
@@ -582,7 +554,17 @@ export function TableMonitorWorkspace({
           <button
             type="button"
             id="btn-waiter-sound-toggle"
-            onClick={() => setSoundEnabled((prev) => !prev)}
+            onClick={() => {
+              const next = !soundEnabled;
+              setSoundEnabled(next);
+              if (next) {
+                unlockAudioContext();
+                playChime("ready_dispatch");
+                triggerToast("🔔 Suara notifikasi waiters diaktifkan");
+              } else {
+                triggerToast("🔕 Suara waiters dinonaktifkan (Mode Bisu)");
+              }
+            }}
             className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0 ${
               soundEnabled
                 ? "bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-900"

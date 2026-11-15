@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { DEFAULT_USERS } from "@/types/auth";
 
 // Helper to format order number
 function generateOrderNumber(): string {
@@ -45,6 +46,20 @@ export async function GET(request: Request) {
         createdAt: "desc",
       },
     });
+
+    // Pre-populate user name dictionary for dynamic cashier naming
+    const userMap = new Map<string, string>();
+    for (const u of DEFAULT_USERS) {
+      userMap.set(u.id, u.name);
+    }
+    try {
+      const dbUsers = await db.user.findMany({ select: { id: true, name: true } });
+      for (const u of dbUsers) {
+        userMap.set(u.id, u.name);
+      }
+    } catch (e) {
+      // db user query fallback to DEFAULT_USERS
+    }
 
     // Filter out any dummy orders (e.g. Sesi Meja Dibuka)
     const validDbOrders = orders.filter((o) => {
@@ -114,8 +129,15 @@ export async function GET(request: Request) {
         }
       }
 
-      let cashierId = latestPayment?.cashierId || "usr-kasir-1";
-      let cashierName = cashierId === "usr-kasir-2" ? "Rian Pratama" : "Siti Rahmawati";
+      let cashierId: string | undefined = latestPayment?.cashierId || undefined;
+      let cashierName: string | undefined = undefined;
+
+      if (cashierId) {
+        cashierName = userMap.get(cashierId) || (cashierId === "usr-kasir-2" ? "Rian Pratama" : "Siti Rahmawati");
+      } else if (o.paymentStatus === "paid") {
+        cashierId = "usr-kasir-1";
+        cashierName = userMap.get("usr-kasir-1") || "Siti Rahmawati";
+      }
 
       let paymentNote: string | undefined = undefined;
       if (latestPayment?.changeAmount && latestPayment.changeAmount > 0) {
@@ -762,6 +784,17 @@ export async function PATCH(request: Request) {
                 status: "paid",
                 cashierId: body.cashierId || "usr-kasir-1",
                 tableSessionId: existing.tableSessionId || null,
+              },
+            });
+          } else {
+            await db.payment.update({
+              where: { id: existingPayment.id },
+              data: {
+                status: "paid",
+                method: cleanMethod,
+                ...(body.cashierId ? { cashierId: body.cashierId } : {}),
+                ...(body.amountPaid ? { amountPaid: Number(body.amountPaid) } : {}),
+                ...(body.changeAmount !== undefined ? { changeAmount: Number(body.changeAmount) } : {}),
               },
             });
           }

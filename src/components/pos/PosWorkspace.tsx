@@ -1143,6 +1143,9 @@ export function PosWorkspace({
             paymentStatus: "paid",
             paymentMethod: method,
             amountPaid: effectiveCash,
+            changeAmount: changeAmount,
+            cashierId: currentUser.id,
+            cashierName: currentUser.name,
           }),
         });
         if (res.ok) {
@@ -1281,6 +1284,8 @@ export function PosWorkspace({
             totalAmount: cartFinalTotal,
             paymentStatus: "paid",
             paymentMethod: ojolPlatform,
+            cashierId: currentUser.id,
+            cashierName: currentUser.name,
           }),
         });
         if (res.ok) {
@@ -2284,6 +2289,11 @@ export function PosWorkspace({
         taxAmount: taxPB1,
         total: finalTotal,
         paymentStatus: "paid",
+        paymentMethod: method,
+        amountPaid: method === "cash" ? cashReceived : finalTotal,
+        changeAmount: changeAmount,
+        cashierId: currentUser.id,
+        cashierName: currentUser.name,
       }),
     }).catch((err) => console.error("Gagal sync diskon/pembayaran pesanan ke db:", err));
 
@@ -5848,47 +5858,62 @@ export function PosWorkspace({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="shrink-0 px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center shadow-2xs">
-                  <span className="material-symbols-outlined text-2xl">receipt_long</span>
-                </div>
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-bold text-lg text-slate-900 leading-tight">
-                      Riwayat Transaksi Kasir: {currentUser.name}
-                    </h2>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider border border-emerald-300">
-                      Kasir Aktif
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-wider">
-                      Shortcut F6
-                    </span>
+            {(() => {
+              const isManagement = ["owner", "admin", "manager"].includes(currentUser.role);
+              return (
+                <div className="shrink-0 px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-2xs ${isManagement ? "bg-indigo-100 text-indigo-800" : "bg-emerald-100 text-emerald-800"}`}>
+                      <span className="material-symbols-outlined text-2xl">receipt_long</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <h2 className="font-bold text-lg text-slate-900 leading-tight">
+                          {isManagement ? "Riwayat Transaksi (Semua Kasir)" : `Riwayat Transaksi Kasir: ${currentUser.name}`}
+                        </h2>
+                        {isManagement ? (
+                          <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-black uppercase tracking-wider border border-indigo-300">
+                            Akses Manajemen: {currentUser.role}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider border border-emerald-300">
+                            Kasir Aktif
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-wider">
+                          Shortcut F6
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {isManagement
+                          ? `Menampilkan seluruh data transaksi restoran dari semua kasir karena Anda login dengan akun manajemen (${currentUser.name}).`
+                          : `Hanya menampilkan transaksi pada shift kasir Anda (${currentUser.name}). Data transaksi kasir lain terpisah aman.`}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Hanya menampilkan transaksi di kasir ini ({currentUser.name}). Riwayat kasir baru otomatis kosong.
-                  </p>
-                </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={() => setIsHistoryModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-white hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer transition-colors border border-slate-200"
-                title="Tutup (Esc)"
-              >
-                <span className="material-symbols-outlined text-lg">close</span>
-              </button>
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsHistoryModalOpen(false)}
+                    className="w-8 h-8 rounded-full bg-white hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer transition-colors border border-slate-200"
+                    title="Tutup (Esc)"
+                  >
+                    <span className="material-symbols-outlined text-lg">close</span>
+                  </button>
+                </div>
+              );
+            })()}
 
             {/* Filter Bar & Quick Search */}
             <div className="shrink-0 p-4 border-b border-slate-100 bg-white flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               {/* Saluran Tabs */}
               {(() => {
+                const isManagement = ["owner", "admin", "manager"].includes(currentUser.role);
                 const cashierOrders = orders.filter((o) => {
+                  if (isManagement) return true;
                   if (o.cashierId) return o.cashierId === currentUser.id;
                   if (o.cashierName) return o.cashierName.toLowerCase() === currentUser.name.toLowerCase();
-                  return currentUser.id === "usr-kasir-1";
+                  return false;
                 });
 
                 return (
@@ -5958,10 +5983,12 @@ export function PosWorkspace({
             {/* List Transaksi Content */}
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2.5 divide-y divide-slate-100 scrollbar-thin">
               {(() => {
+                const isManagement = ["owner", "admin", "manager"].includes(currentUser.role);
                 const cashierOrders = orders.filter((o) => {
+                  if (isManagement) return true;
                   if (o.cashierId) return o.cashierId === currentUser.id;
                   if (o.cashierName) return o.cashierName.toLowerCase() === currentUser.name.toLowerCase();
-                  return currentUser.id === "usr-kasir-1";
+                  return false;
                 });
 
                 if (cashierOrders.length === 0) {
@@ -6063,6 +6090,13 @@ export function PosWorkspace({
                               <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-950 border border-orange-200 text-[10px] font-black flex items-center gap-1">
                                 <span className="material-symbols-outlined text-xs">moped</span>
                                 <span>Delivery ({ord.channelLabel || "Online"})</span>
+                              </span>
+                            )}
+
+                            {isManagement && (
+                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-300 text-[10px] font-bold flex items-center gap-1">
+                                <span className="material-symbols-outlined text-xs text-slate-500">person</span>
+                                <span>Kasir: {ord.cashierName || "Siti Rahmawati"}</span>
                               </span>
                             )}
 
