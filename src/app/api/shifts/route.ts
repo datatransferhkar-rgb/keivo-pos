@@ -85,10 +85,10 @@ export async function GET() {
         },
       }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching shift:", error);
     return NextResponse.json(
-      { error: "Failed to fetch shift" },
+      { error: "Failed to fetch shift", details: error?.message || String(error) },
       {
         status: 500,
         headers: {
@@ -169,8 +169,11 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating shift:", error);
-    return NextResponse.json({ error: "Gagal memproses data shift" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Gagal memproses data shift", details: error?.message || String(error) },
+      { status: 500 }
+    );
   }
 }
