@@ -2907,7 +2907,10 @@ export function PosWorkspace({
                             value: catalogSearch,
                             type: "text",
                             quickChips: ["Ayam", "Bebek", "Nasi", "Gurame", "Es Teh", "Kelapa"],
-                            onChange: (val) => setCatalogSearch(val),
+                            onChange: (val) => {
+                              setCatalogSearch(val);
+                              setActiveKeyboardTarget((prev) => prev ? { ...prev, value: val } : null);
+                            },
                           });
                         }
                       }}
@@ -3232,7 +3235,10 @@ export function PosWorkspace({
                             value: searchFilter,
                             type: "text",
                             quickChips: ["Meja ", "Lantai 1", "Outdoor", "Tersedia", "Terisi"],
-                            onChange: (val) => setSearchFilter(val),
+                            onChange: (val) => {
+                              setSearchFilter(val);
+                              setActiveKeyboardTarget((prev) => prev ? { ...prev, value: val } : null);
+                            },
                           });
                         }
                       }}
@@ -3749,7 +3755,10 @@ export function PosWorkspace({
                               value: takeawayCustomerName,
                               type: "text",
                               quickChips: ["Bpk ", "Ibu ", "Kak "],
-                              onChange: (val) => setTakeawayCustomerName(val),
+                              onChange: (val) => {
+                                setTakeawayCustomerName(val);
+                                setActiveKeyboardTarget((prev) => prev ? { ...prev, value: val } : null);
+                              },
                             });
                           }
                         }}
@@ -3862,6 +3871,7 @@ export function PosWorkspace({
                               onChange: (val) => {
                                 setOjolExternalId(val.toUpperCase());
                                 setOjolError("");
+                                setActiveKeyboardTarget((prev) => prev ? { ...prev, value: val.toUpperCase() } : null);
                               },
                             });
                           }
@@ -3892,7 +3902,10 @@ export function PosWorkspace({
                               label: "Nama Driver / Pemesan Ojol",
                               value: ojolDriverName,
                               type: "text",
-                              onChange: (val) => setOjolDriverName(val),
+                              onChange: (val) => {
+                                setOjolDriverName(val);
+                                setActiveKeyboardTarget((prev) => prev ? { ...prev, value: val } : null);
+                              },
                             });
                           }
                         }}
@@ -4028,7 +4041,10 @@ export function PosWorkspace({
                               value: item.note || "",
                               type: "text",
                               quickChips: ["Bungkus", "Pedas", "Tidak Pedas", "Pisah Sambal", "Es Sedikit", "Tanpa Gula", "Manis"],
-                              onChange: (val) => handleUpdateCartNote(cartIdx, val),
+                              onChange: (val) => {
+                                handleUpdateCartNote(cartIdx, val);
+                                setActiveKeyboardTarget((prev) => prev ? { ...prev, value: val } : null);
+                              },
                             });
                           }
                         }}
