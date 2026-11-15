@@ -18,6 +18,7 @@ import { TutupKasirModal } from "@/components/modals/TutupKasirModal";
 import { ProductDetailModal } from "@/components/modals/ProductDetailModal";
 import { PengeluaranKasModal, CashExpenseItem } from "@/components/modals/PengeluaranKasModal";
 import { PindahMejaModal } from "@/components/modals/PindahMejaModal";
+import { PosVirtualKeyboard, VirtualKeyboardTarget } from "@/components/pos/PosVirtualKeyboard";
 import {
   playOrderChime,
   playSuccessChime,
@@ -514,6 +515,10 @@ export function PosWorkspace({
       console.error("Gagal memuat data kas keluar:", err);
     }
   };
+
+  // Virtual Keyboard State (Docked di Sisi Kiri 70% Khusus Tablet POS)
+  const [isVirtualKeyboardEnabled, setIsVirtualKeyboardEnabled] = useState<boolean>(true);
+  const [activeKeyboardTarget, setActiveKeyboardTarget] = useState<VirtualKeyboardTarget | null>(null);
 
   useEffect(() => {
     fetchShiftCashMovements();
@@ -2579,7 +2584,7 @@ export function PosWorkspace({
           LEFT AREA (70% WIDTH ON TABLET LANDSCAPE & DESKTOP):
           Katalog menu atau denah meja (70% lebar layar tablet)
          ======================================================== */}
-      <div className="w-full lg:w-[70%] shrink-0 flex flex-col h-full overflow-hidden border-r border-slate-200/80 bg-surface">
+      <div className="w-full lg:w-[70%] shrink-0 flex flex-col h-full overflow-hidden border-r border-slate-200/80 bg-surface relative">
 
         {/* Top Operational Bar: Clean Single-Row Tablet Header */}
         <div className="w-full bg-surface-container-lowest shadow-xs border-b border-outline-variant/30 px-3 sm:px-4 py-2 shrink-0 flex items-center justify-between gap-3">
@@ -2759,6 +2764,35 @@ export function PosWorkspace({
               </span>
             </button>
 
+            {/* Sakelar Keyboard Virtual Layar Kiri (Tablet Mode) */}
+            <button
+              type="button"
+              id="btn-pos-keyboard-toggle"
+              onClick={() => {
+                const next = !isVirtualKeyboardEnabled;
+                setIsVirtualKeyboardEnabled(next);
+                if (!next) setActiveKeyboardTarget(null);
+                showToast(
+                  next
+                    ? "Keyboard Virtual Kustom Layar Kiri DIAKTIFKAN."
+                    : "Keyboard Virtual DIMATIKAN (Gunakan keyboard bawaan OS atau keyboard fisik)."
+                );
+              }}
+              className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0 ${isVirtualKeyboardEnabled
+                  ? "bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-900"
+                  : "bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-400"
+                }`}
+              title={
+                isVirtualKeyboardEnabled
+                  ? "Keyboard Virtual Layar Kiri Aktif (Klik untuk matikan jika pakai keyboard fisik bluetooth)"
+                  : "Keyboard Virtual Nonaktif (Klik untuk aktifkan)"
+              }
+            >
+              <span className="material-symbols-outlined text-lg">
+                {isVirtualKeyboardEnabled ? "keyboard" : "keyboard_off"}
+              </span>
+            </button>
+
             {/* Segarkan */}
             <button
               type="button"
@@ -2863,8 +2897,26 @@ export function PosWorkspace({
                     </span>
                     <input
                       type="text"
+                      inputMode={isVirtualKeyboardEnabled ? "none" : undefined}
                       value={catalogSearch}
-                      onChange={(e) => setCatalogSearch(e.target.value)}
+                      onFocus={() => {
+                        if (isVirtualKeyboardEnabled) {
+                          setActiveKeyboardTarget({
+                            id: "catalogSearch",
+                            label: "Cari Menu Produk",
+                            value: catalogSearch,
+                            type: "text",
+                            quickChips: ["Ayam", "Bebek", "Nasi", "Gurame", "Es Teh", "Kelapa"],
+                            onChange: (val) => setCatalogSearch(val),
+                          });
+                        }
+                      }}
+                      onChange={(e) => {
+                        setCatalogSearch(e.target.value);
+                        if (activeKeyboardTarget?.id === "catalogSearch") {
+                          setActiveKeyboardTarget((prev) => prev ? { ...prev, value: e.target.value } : null);
+                        }
+                      }}
                       placeholder="Cari nama menu / kode..."
                       className="w-full pl-9 pr-7 py-1.5 bg-surface-container-low rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:bg-surface-container-lowest border border-outline-variant/30"
                     />
@@ -3170,8 +3222,26 @@ export function PosWorkspace({
                     </span>
                     <input
                       type="text"
+                      inputMode={isVirtualKeyboardEnabled ? "none" : undefined}
                       value={searchFilter}
-                      onChange={(e) => setSearchFilter(e.target.value)}
+                      onFocus={() => {
+                        if (isVirtualKeyboardEnabled) {
+                          setActiveKeyboardTarget({
+                            id: "searchFilter",
+                            label: "Cari Meja / Tamu",
+                            value: searchFilter,
+                            type: "text",
+                            quickChips: ["Meja ", "Lantai 1", "Outdoor", "Tersedia", "Terisi"],
+                            onChange: (val) => setSearchFilter(val),
+                          });
+                        }
+                      }}
+                      onChange={(e) => {
+                        setSearchFilter(e.target.value);
+                        if (activeKeyboardTarget?.id === "searchFilter") {
+                          setActiveKeyboardTarget((prev) => prev ? { ...prev, value: e.target.value } : null);
+                        }
+                      }}
                       placeholder="Cari meja, no. atau tamu..."
                       className="w-full pl-9 pr-3 py-1.5 bg-surface-container-low rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:bg-surface-container-lowest border border-outline-variant/30"
                     />
@@ -3486,6 +3556,16 @@ export function PosWorkspace({
             </div>
           </>
         )}
+
+        {/* VIRTUAL ON-SCREEN KEYBOARD (DOCK DI BAGIAN BAWAH SISI KIRI 70%) */}
+        {isVirtualKeyboardEnabled && activeKeyboardTarget && (
+          <PosVirtualKeyboard
+            target={activeKeyboardTarget}
+            onClose={() => setActiveKeyboardTarget(null)}
+            soundEnabled={soundEnabled}
+            playClickSound={playOrderChime}
+          />
+        )}
       </div>
 
       {/* ========================================================
@@ -3659,8 +3739,26 @@ export function PosWorkspace({
                       </div>
                       <input
                         type="text"
+                        inputMode={isVirtualKeyboardEnabled ? "none" : undefined}
                         value={takeawayCustomerName}
-                        onChange={(e) => setTakeawayCustomerName(e.target.value)}
+                        onFocus={() => {
+                          if (isVirtualKeyboardEnabled) {
+                            setActiveKeyboardTarget({
+                              id: "takeawayCustomerName",
+                              label: "Nama Pelanggan (Takeaway)",
+                              value: takeawayCustomerName,
+                              type: "text",
+                              quickChips: ["Bpk ", "Ibu ", "Kak "],
+                              onChange: (val) => setTakeawayCustomerName(val),
+                            });
+                          }
+                        }}
+                        onChange={(e) => {
+                          setTakeawayCustomerName(e.target.value);
+                          if (activeKeyboardTarget?.id === "takeawayCustomerName") {
+                            setActiveKeyboardTarget((prev) => prev ? { ...prev, value: e.target.value } : null);
+                          }
+                        }}
                         placeholder="Ketik nama pelanggan walk-in atau pilih member..."
                         className="w-full px-3 py-1.5 bg-white rounded-xl border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-primary"
                       />
@@ -3751,10 +3849,29 @@ export function PosWorkspace({
                       </label>
                       <input
                         type="text"
+                        inputMode={isVirtualKeyboardEnabled ? "none" : undefined}
                         value={ojolExternalId}
+                        onFocus={() => {
+                          if (isVirtualKeyboardEnabled) {
+                            setActiveKeyboardTarget({
+                              id: "ojolExternalId",
+                              label: `ID Pesanan ${ojolPlatform}`,
+                              value: ojolExternalId,
+                              type: "text",
+                              quickChips: ["GF-", "GR-", "SF-"],
+                              onChange: (val) => {
+                                setOjolExternalId(val.toUpperCase());
+                                setOjolError("");
+                              },
+                            });
+                          }
+                        }}
                         onChange={(e) => {
                           setOjolExternalId(e.target.value);
                           setOjolError("");
+                          if (activeKeyboardTarget?.id === "ojolExternalId") {
+                            setActiveKeyboardTarget((prev) => prev ? { ...prev, value: e.target.value } : null);
+                          }
                         }}
                         placeholder="Misal: GF-8921"
                         className="w-full px-2.5 py-1.5 bg-white rounded-xl border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 uppercase font-bold focus:outline-none focus:border-primary"
@@ -3766,8 +3883,25 @@ export function PosWorkspace({
                       </label>
                       <input
                         type="text"
+                        inputMode={isVirtualKeyboardEnabled ? "none" : undefined}
                         value={ojolDriverName}
-                        onChange={(e) => setOjolDriverName(e.target.value)}
+                        onFocus={() => {
+                          if (isVirtualKeyboardEnabled) {
+                            setActiveKeyboardTarget({
+                              id: "ojolDriverName",
+                              label: "Nama Driver / Pemesan Ojol",
+                              value: ojolDriverName,
+                              type: "text",
+                              onChange: (val) => setOjolDriverName(val),
+                            });
+                          }
+                        }}
+                        onChange={(e) => {
+                          setOjolDriverName(e.target.value);
+                          if (activeKeyboardTarget?.id === "ojolDriverName") {
+                            setActiveKeyboardTarget((prev) => prev ? { ...prev, value: e.target.value } : null);
+                          }
+                        }}
                         placeholder="Misal: Joko Susilo"
                         className="w-full px-2.5 py-1.5 bg-white rounded-xl border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-primary"
                       />
@@ -3884,8 +4018,26 @@ export function PosWorkspace({
                       {/* Note Input */}
                       <input
                         type="text"
+                        inputMode={isVirtualKeyboardEnabled ? "none" : undefined}
                         value={item.note || ""}
-                        onChange={(e) => handleUpdateCartNote(cartIdx, e.target.value)}
+                        onFocus={() => {
+                          if (isVirtualKeyboardEnabled) {
+                            setActiveKeyboardTarget({
+                              id: `cartItemNote_${cartIdx}`,
+                              label: `Catatan: ${item.name}`,
+                              value: item.note || "",
+                              type: "text",
+                              quickChips: ["Bungkus", "Pedas", "Tidak Pedas", "Pisah Sambal", "Es Sedikit", "Tanpa Gula", "Manis"],
+                              onChange: (val) => handleUpdateCartNote(cartIdx, val),
+                            });
+                          }
+                        }}
+                        onChange={(e) => {
+                          handleUpdateCartNote(cartIdx, e.target.value);
+                          if (activeKeyboardTarget?.id === `cartItemNote_${cartIdx}`) {
+                            setActiveKeyboardTarget((prev) => prev ? { ...prev, value: e.target.value } : null);
+                          }
+                        }}
                         placeholder="Catatan item (pedas, sedikit es)..."
                         className="flex-1 px-3 py-1.5 text-xs bg-slate-50 hover:bg-slate-100/70 rounded-xl border border-slate-200 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-primary transition-all"
                       />
