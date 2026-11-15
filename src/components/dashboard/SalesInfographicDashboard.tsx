@@ -4,7 +4,6 @@ import React, { useState, useMemo } from "react";
 import { formatCurrency } from "@/lib/formatters";
 import { OrderData } from "@/types/pos";
 import { useRestaurant } from "@/context/RestaurantContext";
-import { DEFAULT_CATALOG_PRODUCTS } from "@/lib/catalogData";
 
 type TimeHorizon = "today" | "weekly" | "monthly" | "all" | "custom";
 type ChartViewMode = "spline" | "bars";
@@ -56,83 +55,70 @@ export function SalesInfographicDashboard({
   >("all");
   const [liveVisibleCount, setLiveVisibleCount] = useState(8);
 
-  // 1. FILTER ORDERS BY TIME HORIZON & CUSTOM DATE RANGE
+  // 1. FILTER ORDERS BY TIME HORIZON & CUSTOM DATE RANGE (STRICT & AKURAT)
   const filteredOrders = useMemo(() => {
     if (!orders || orders.length === 0) return [];
 
     const now = new Date();
     const todayStr = now.toLocaleDateString("en-CA");
 
-    const getOrderDateStr = (createdAt?: string | Date) => {
-      if (!createdAt) return todayStr;
+    const getOrderDateStr = (createdAt?: string | Date): string => {
+      if (!createdAt) return "";
       try {
         const d = typeof createdAt === "string" ? new Date(createdAt) : createdAt;
-        if (isNaN(d.getTime())) return todayStr;
+        if (isNaN(d.getTime())) return "";
         return d.toLocaleDateString("en-CA");
       } catch {
-        return todayStr;
+        return "";
       }
     };
 
-    if (timeHorizon === "all") return orders;
+    // SEMUA TRANSAKSI
+    if (timeHorizon === "all") {
+      return orders;
+    }
 
+    // HARIAN (HARI INI)
     if (timeHorizon === "today") {
-      const todayOrders = orders.filter((o) => getOrderDateStr(o.createdAt) === todayStr);
-      if (todayOrders.length > 0) return todayOrders;
-
-      // Fallback: use date of most recent order if no orders today
-      const latestOrder = orders.reduce((latest, curr) => {
-        const dCurr = curr.createdAt ? new Date(curr.createdAt).getTime() : 0;
-        const dLatest = latest.createdAt ? new Date(latest.createdAt).getTime() : 0;
-        return dCurr > dLatest ? curr : latest;
-      }, orders[0]);
-      const anchorDateStr = getOrderDateStr(latestOrder?.createdAt);
-      const matched = orders.filter((o) => getOrderDateStr(o.createdAt) === anchorDateStr);
-      return matched.length > 0 ? matched : orders;
+      return orders.filter((o) => getOrderDateStr(o.createdAt) === todayStr);
     }
 
+    // MINGGUAN (7 HARI TERAKHIR)
     if (timeHorizon === "weekly") {
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
       const sevenDaysAgoStr = sevenDaysAgo.toLocaleDateString("en-CA");
-      const weeklyOrders = orders.filter((o) => getOrderDateStr(o.createdAt) >= sevenDaysAgoStr);
-      if (weeklyOrders.length > 0) return weeklyOrders;
-
-      const latestOrder = orders.reduce((latest, curr) => {
-        const dCurr = curr.createdAt ? new Date(curr.createdAt).getTime() : 0;
-        const dLatest = latest.createdAt ? new Date(latest.createdAt).getTime() : 0;
-        return dCurr > dLatest ? curr : latest;
-      }, orders[0]);
-      const anchorTime = latestOrder?.createdAt ? new Date(latestOrder.createdAt).getTime() : now.getTime();
-      const cutoff = new Date(anchorTime - 7 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA");
-      const matched = orders.filter((o) => getOrderDateStr(o.createdAt) >= cutoff);
-      return matched.length > 0 ? matched : orders;
-    }
-
-    if (timeHorizon === "monthly") {
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      const thirtyDaysAgoStr = thirtyDaysAgo.toLocaleDateString("en-CA");
-      const monthlyOrders = orders.filter((o) => getOrderDateStr(o.createdAt) >= thirtyDaysAgoStr);
-      if (monthlyOrders.length > 0) return monthlyOrders;
-
-      const latestOrder = orders.reduce((latest, curr) => {
-        const dCurr = curr.createdAt ? new Date(curr.createdAt).getTime() : 0;
-        const dLatest = latest.createdAt ? new Date(latest.createdAt).getTime() : 0;
-        return dCurr > dLatest ? curr : latest;
-      }, orders[0]);
-      const anchorTime = latestOrder?.createdAt ? new Date(latestOrder.createdAt).getTime() : now.getTime();
-      const cutoff = new Date(anchorTime - 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA");
-      const matched = orders.filter((o) => getOrderDateStr(o.createdAt) >= cutoff);
-      return matched.length > 0 ? matched : orders;
-    }
-
-    if (timeHorizon === "custom") {
-      const matched = orders.filter((o) => {
-        const orderDate = getOrderDateStr(o.createdAt);
-        if (customStartDate && orderDate < customStartDate) return false;
-        if (customEndDate && orderDate > customEndDate) return false;
-        return true;
+      return orders.filter((o) => {
+        const dStr = getOrderDateStr(o.createdAt);
+        return dStr >= sevenDaysAgoStr && dStr <= todayStr;
       });
-      return matched.length > 0 ? matched : orders;
+    }
+
+    // BULANAN (BULAN BERJALAN)
+    if (timeHorizon === "monthly") {
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      return orders.filter((o) => {
+        if (!o.createdAt) return false;
+        try {
+          const d = typeof o.createdAt === "string" ? new Date(o.createdAt) : o.createdAt;
+          if (isNaN(d.getTime())) return false;
+          return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+        } catch {
+          return false;
+        }
+      });
+    }
+
+    // PILIH TANGGAL PERIODE (KUSTOM DARI - S/D)
+    if (timeHorizon === "custom") {
+      const s = customStartDate || todayStr;
+      const e = customEndDate || todayStr;
+      const [startStr, endStr] = s <= e ? [s, e] : [e, s];
+      return orders.filter((o) => {
+        const dStr = getOrderDateStr(o.createdAt);
+        if (!dStr) return false;
+        return dStr >= startStr && dStr <= endStr;
+      });
     }
 
     return orders;
@@ -140,7 +126,7 @@ export function SalesInfographicDashboard({
 
   // 2. DYNAMIC SUMMARY METRICS
   const summaryMetrics = useMemo(() => {
-    const list = filteredOrders.length > 0 ? filteredOrders : orders;
+    const list = filteredOrders;
 
     let realizedRevenue = 0;
     let pendingRevenue = 0;
@@ -263,11 +249,11 @@ export function SalesInfographicDashboard({
       topMethodName: topMethod.name,
       topMethodPct,
     };
-  }, [filteredOrders, orders]);
+  }, [filteredOrders]);
 
-  // 3. TOP 10 MENU BEST SELLER (MEMASTIKAN 10 PRODUK TERLARIS SELALU TAMPIL)
+  // 3. TOP 10 MENU BEST SELLER (SESUAI TRANSAKSI PERIODE TERPILIH)
   const top10MenuItems = useMemo(() => {
-    const list = filteredOrders.length > 0 ? filteredOrders : orders;
+    const list = filteredOrders;
     const itemMap: Record<
       string,
       { name: string; category: string; qty: number; revenue: number }
@@ -321,20 +307,8 @@ export function SalesInfographicDashboard({
       });
     });
 
-    // Melengkapi hingga minimal 10 item menggunakan katalog jika belum mencukupi
-    DEFAULT_CATALOG_PRODUCTS.forEach((prod) => {
-      const key = prod.name.trim();
-      if (!itemMap[key]) {
-        itemMap[key] = {
-          name: prod.name,
-          category: prod.category || "Makanan Utama",
-          qty: 0,
-          revenue: 0,
-        };
-      }
-    });
-
-    const sorted = Object.values(itemMap).sort((a, b) => b.qty - a.qty || b.revenue - a.revenue);
+    const activeItems = Object.values(itemMap).filter((item) => item.qty > 0);
+    const sorted = activeItems.sort((a, b) => b.qty - a.qty || b.revenue - a.revenue);
     const top10 = sorted.slice(0, 10);
     const maxQty = Math.max(top10[0]?.qty || 1, 1);
 
@@ -346,11 +320,11 @@ export function SalesInfographicDashboard({
       revenue: item.revenue,
       percentage: Math.max(6, Math.round((item.qty / maxQty) * 100)),
     }));
-  }, [filteredOrders, orders]);
+  }, [filteredOrders]);
 
   // 4. CHART DATA COMPUTATION (DINAMIS MENYESUAIKAN HARI INI, MINGGUAN, BULANAN, SEMUA, DAN KUSTOM)
   const chartData = useMemo(() => {
-    const list = filteredOrders.length > 0 ? filteredOrders : orders;
+    const list = filteredOrders;
 
     // CASE 1: HARI INI (GRAFIK PER JAM: 08:00 s/d 22:00)
     if (timeHorizon === "today") {
@@ -558,48 +532,94 @@ export function SalesInfographicDashboard({
     }
 
     // CASE 5: KUSTOM (RENTANG TANGGAL TERPILIH)
-    const start = new Date(customStartDate || Date.now());
-    const end = new Date(customEndDate || Date.now());
+    const todayStr = new Date().toLocaleDateString("en-CA");
+    const sRaw = customStartDate || todayStr;
+    const eRaw = customEndDate || todayStr;
+    const [sDate, eDate] = sRaw <= eRaw ? [sRaw, eRaw] : [eRaw, sRaw];
+    const startParts = sDate.split("-").map(Number);
+    const endParts = eDate.split("-").map(Number);
+    const start = new Date(startParts[0], startParts[1] - 1, startParts[2]);
+    const end = new Date(endParts[0], endParts[1] - 1, endParts[2]);
     const diffDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1);
 
     const customDaysMap: Record<string, any> = {};
-    const maxPoints = Math.min(diffDays, 14);
-    const step = diffDays <= 14 ? 1 : Math.ceil(diffDays / 10);
 
-    for (let i = 0; i < maxPoints; i++) {
-      const d = new Date(start.getTime() + i * step * 24 * 60 * 60 * 1000);
-      if (d > end) break;
-      const key = d.toLocaleDateString("en-CA");
-      customDaysMap[key] = {
-        dayKey: key,
-        label: d.toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
-        fullLabel: d.toLocaleDateString("id-ID", {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        }),
-        dateStr: d.toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
-        dineIn: 0,
-        takeaway: 0,
-        ojol: 0,
-        total: 0,
-        orderCount: 0,
-      };
-    }
-
-    list.forEach((o) => {
-      if (!o.createdAt) return;
-      const key = new Date(o.createdAt).toLocaleDateString("en-CA");
-      if (customDaysMap[key]) {
-        const tot = o.total || 0;
-        customDaysMap[key].total += tot;
-        customDaysMap[key].orderCount += 1;
-        if (o.channel === "dine_in_qr") customDaysMap[key].dineIn += tot;
-        else if (o.channel === "takeaway_walk_in") customDaysMap[key].takeaway += tot;
-        else customDaysMap[key].ojol += tot;
+    if (diffDays <= 31) {
+      // Rentang <= 31 hari: Tampilkan grafik per hari
+      const d = new Date(start);
+      while (d <= end) {
+        const key = d.toLocaleDateString("en-CA");
+        customDaysMap[key] = {
+          dayKey: key,
+          label: d.toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
+          fullLabel: d.toLocaleDateString("id-ID", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }),
+          dateStr: d.toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
+          dineIn: 0,
+          takeaway: 0,
+          ojol: 0,
+          total: 0,
+          orderCount: 0,
+        };
+        d.setDate(d.getDate() + 1);
       }
-    });
+
+      list.forEach((o) => {
+        if (!o.createdAt) return;
+        try {
+          const od = new Date(o.createdAt);
+          const key = od.toLocaleDateString("en-CA");
+          if (customDaysMap[key]) {
+            const tot = o.total || 0;
+            customDaysMap[key].total += tot;
+            customDaysMap[key].orderCount += 1;
+            if (o.channel === "dine_in_qr") customDaysMap[key].dineIn += tot;
+            else if (o.channel === "takeaway_walk_in") customDaysMap[key].takeaway += tot;
+            else customDaysMap[key].ojol += tot;
+          }
+        } catch {}
+      });
+    } else {
+      // Rentang > 31 hari: Kelompokkan per bulan
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+      const d = new Date(start.getFullYear(), start.getMonth(), 1);
+      const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+      while (d <= endMonth) {
+        const key = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}`;
+        customDaysMap[key] = {
+          dayKey: key,
+          label: monthNames[d.getMonth()],
+          fullLabel: `${monthNames[d.getMonth()]} ${d.getFullYear()}`,
+          dateStr: d.getFullYear().toString(),
+          dineIn: 0,
+          takeaway: 0,
+          ojol: 0,
+          total: 0,
+          orderCount: 0,
+        };
+        d.setMonth(d.getMonth() + 1);
+      }
+
+      list.forEach((o) => {
+        if (!o.createdAt) return;
+        try {
+          const od = new Date(o.createdAt);
+          const key = `${od.getFullYear()}-${(od.getMonth() + 1).toString().padStart(2, "0")}`;
+          if (customDaysMap[key]) {
+            const tot = o.total || 0;
+            customDaysMap[key].total += tot;
+            customDaysMap[key].orderCount += 1;
+            if (o.channel === "dine_in_qr") customDaysMap[key].dineIn += tot;
+            else if (o.channel === "takeaway_walk_in") customDaysMap[key].takeaway += tot;
+            else customDaysMap[key].ojol += tot;
+          }
+        } catch {}
+      });
+    }
 
     const points = Object.values(customDaysMap);
     const maxVal = Math.max(...points.map((p) => p.total), 1000000);
@@ -625,13 +645,13 @@ export function SalesInfographicDashboard({
       maxVal,
       peakDay,
       dailyAverage: Math.round(points.reduce((sum, p) => sum + p.total, 0) / Math.max(1, points.length)),
-      unitLabel: "hari",
+      unitLabel: diffDays <= 31 ? "hari" : "bulan",
     };
-  }, [filteredOrders, orders, timeHorizon, customStartDate, customEndDate]);
+  }, [filteredOrders, timeHorizon, customStartDate, customEndDate]);
 
   // 5. PEAK TIME & JAM SIBUK RESTORAN
   const peakTimeData = useMemo(() => {
-    const list = filteredOrders.length > 0 ? filteredOrders : orders;
+    const list = filteredOrders;
 
     // Jam operasional restoran: 09:00 s/d 22:00 (14 jam)
     const hours = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
@@ -710,7 +730,7 @@ export function SalesInfographicDashboard({
       dinnerOrders,
       totalOrders: list.length,
     };
-  }, [filteredOrders, orders]);
+  }, [filteredOrders]);
 
   // 5. SPLINE SVG PATH GENERATOR
   const splinePaths = useMemo(() => {
@@ -763,9 +783,9 @@ export function SalesInfographicDashboard({
     };
   }, [chartData]);
 
-  // 6. LIVE TRANSACTIONS FILTERING
+  // 6. LIVE TRANSACTIONS FILTERING (MENGIKUTI PERIODE FILTER & SALURAN)
   const liveTransactions = useMemo(() => {
-    let list = orders;
+    let list = filteredOrders;
 
     if (liveChannelFilter === "dine_in") {
       list = list.filter((o) => o.channel === "dine_in_qr");
@@ -791,7 +811,7 @@ export function SalesInfographicDashboard({
     }
 
     return list;
-  }, [orders, liveChannelFilter, liveSearchQuery]);
+  }, [filteredOrders, liveChannelFilter, liveSearchQuery]);
 
   const displayedLiveTransactions = liveTransactions.slice(0, liveVisibleCount);
 
@@ -1367,8 +1387,10 @@ export function SalesInfographicDashboard({
               <span className="material-symbols-outlined text-base text-amber-600">stars</span>
               <span>
                 Puncak Tertinggi:{" "}
-                <strong className="text-slate-900">{chartData.peakDay?.fullLabel || "-"}</strong> (
-                {formatCurrency(chartData.peakDay?.total || 0)})
+                <strong className="text-slate-900">
+                  {chartData.peakDay && chartData.peakDay.total > 0 ? chartData.peakDay.fullLabel : "-"}
+                </strong>{" "}
+                ({formatCurrency(chartData.peakDay?.total || 0)})
               </span>
             </span>
             <span className="font-bold text-[#003629]">
@@ -1533,7 +1555,7 @@ export function SalesInfographicDashboard({
                 Jam Tersibuk (Peak)
               </span>
               <span className="text-sm font-black text-slate-900 truncate block">
-                {peakTimeData.peakHour.timeRange}
+                {peakTimeData.peakHour.orderCount > 0 ? peakTimeData.peakHour.timeRange : "-"}
               </span>
             </div>
           </div>
@@ -1548,7 +1570,9 @@ export function SalesInfographicDashboard({
                 Pesanan di Jam Puncak
               </span>
               <span className="text-sm font-black text-[#003629] truncate block">
-                {peakTimeData.peakHour.orderCount} Struk ({formatCurrency(peakTimeData.peakHour.revenue)})
+                {peakTimeData.peakHour.orderCount > 0
+                  ? `${peakTimeData.peakHour.orderCount} Struk (${formatCurrency(peakTimeData.peakHour.revenue)})`
+                  : "0 Struk (Rp 0)"}
               </span>
             </div>
           </div>
@@ -1654,9 +1678,16 @@ export function SalesInfographicDashboard({
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-base text-amber-600">lightbulb</span>
             <span>
-              <strong>Rekomendasi Operasional:</strong> Jam paling ramai berada pada pukul{" "}
-              <strong className="text-slate-900">{peakTimeData.peakHour.timeRange}</strong>. Pastikan seluruh
-              posisi kasir dan juru masak dapur dalam kondisi siap optimal sebelum jam makan siang &amp; makan malam.
+              <strong>Rekomendasi Operasional:</strong>{" "}
+              {peakTimeData.peakHour.orderCount > 0 ? (
+                <>
+                  Jam paling ramai berada pada pukul{" "}
+                  <strong className="text-slate-900">{peakTimeData.peakHour.timeRange}</strong>. Pastikan seluruh
+                  posisi kasir dan juru masak dapur dalam kondisi siap optimal sebelum jam makan siang &amp; makan malam.
+                </>
+              ) : (
+                "Belum ada transaksi pada periode ini untuk memetakan jam tersibuk."
+              )}
             </span>
           </div>
         </div>
@@ -1977,70 +2008,78 @@ export function SalesInfographicDashboard({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {top10MenuItems.map((item) => {
-                  return (
-                    <tr key={item.name} className="hover:bg-slate-50/70 transition-colors">
-                      {/* Rank Medal */}
-                      <td className="py-2.5 px-3 text-center">
-                        <span
-                          className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black ${
-                            item.rank === 1
-                              ? "bg-amber-500 text-white shadow-2xs"
-                              : item.rank === 2
-                              ? "bg-slate-400 text-white shadow-2xs"
-                              : item.rank === 3
-                              ? "bg-amber-800 text-white shadow-2xs"
-                              : "bg-slate-100 text-slate-600 font-bold"
-                          }`}
-                        >
-                          {item.rank}
-                        </span>
-                      </td>
-
-                      {/* Name & Category */}
-                      <td className="py-2.5 px-3">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-900 text-sm">{item.name}</span>
-                          <span className="text-[11px] text-slate-400 font-medium">
-                            {item.category}
+                {top10MenuItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-slate-400 font-medium">
+                      Belum ada data penjualan menu pada periode yang dipilih.
+                    </td>
+                  </tr>
+                ) : (
+                  top10MenuItems.map((item) => {
+                    return (
+                      <tr key={item.name} className="hover:bg-slate-50/70 transition-colors">
+                        {/* Rank Medal */}
+                        <td className="py-2.5 px-3 text-center">
+                          <span
+                            className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black ${
+                              item.rank === 1
+                                ? "bg-amber-500 text-white shadow-2xs"
+                                : item.rank === 2
+                                ? "bg-slate-400 text-white shadow-2xs"
+                                : item.rank === 3
+                                ? "bg-amber-800 text-white shadow-2xs"
+                                : "bg-slate-100 text-slate-600 font-bold"
+                            }`}
+                          >
+                            {item.rank}
                           </span>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Quantity Sold */}
-                      <td className="py-2.5 px-3 text-center">
-                        <span className="font-black text-[#003629] font-mono text-sm">
-                          {item.qty.toLocaleString("id-ID")}
-                        </span>
-                        <span className="text-[11px] text-slate-400 ml-1">porsi</span>
-                      </td>
-
-                      {/* Percentage Bar */}
-                      <td className="py-2.5 px-3 min-w-[140px]">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/50">
-                            <div
-                              className={`h-full rounded-full ${
-                                item.rank <= 3 ? "bg-[#003629]" : "bg-[#904d00]"
-                              }`}
-                              style={{ width: `${item.percentage}%` }}
-                            />
+                        {/* Name & Category */}
+                        <td className="py-2.5 px-3">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-900 text-sm">{item.name}</span>
+                            <span className="text-[11px] text-slate-400 font-medium">
+                              {item.category}
+                            </span>
                           </div>
-                          <span className="text-[11px] font-bold text-slate-600 w-8 text-right">
-                            {item.percentage}%
-                          </span>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Total Revenue */}
-                      <td className="py-2.5 px-3 text-right">
-                        <span className="font-black text-slate-900 font-mono">
-                          {formatCurrency(item.revenue)}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        {/* Quantity Sold */}
+                        <td className="py-2.5 px-3 text-center">
+                          <span className="font-black text-[#003629] font-mono text-sm">
+                            {item.qty.toLocaleString("id-ID")}
+                          </span>
+                          <span className="text-[11px] text-slate-400 ml-1">porsi</span>
+                        </td>
+
+                        {/* Percentage Bar */}
+                        <td className="py-2.5 px-3 min-w-[140px]">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/50">
+                              <div
+                                className={`h-full rounded-full ${
+                                  item.rank <= 3 ? "bg-[#003629]" : "bg-[#904d00]"
+                                }`}
+                                style={{ width: `${item.percentage}%` }}
+                              />
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-600 w-8 text-right">
+                              {item.percentage}%
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Total Revenue */}
+                        <td className="py-2.5 px-3 text-right">
+                          <span className="font-black text-slate-900 font-mono">
+                            {formatCurrency(item.revenue)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
