@@ -347,7 +347,18 @@ export function PosWorkspace({
   } | null>(null);
 
   // Promo Produk / Menu (Item-Level Promos)
-  const [productPromos, setProductPromos] = useState<ProductPromo[]>([]);
+  const [productPromos, setProductPromos] = useState<ProductPromo[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("pos_product_promos_cache");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
 
   const [promoModalState, setPromoModalState] = useState<{
     isOpen: boolean;
@@ -381,7 +392,15 @@ export function PosWorkspace({
       fetch("/api/product-promos?active=true")
         .then((res) => res.json())
         .then((data) => {
-          if (Array.isArray(data)) setProductPromos(data);
+          if (Array.isArray(data)) {
+            setProductPromos((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data)) return prev;
+              return data;
+            });
+            try {
+              localStorage.setItem("pos_product_promos_cache", JSON.stringify(data));
+            } catch {}
+          }
         })
         .catch((err) => console.error("Gagal load product promos di POS:", err));
     };
@@ -802,7 +821,7 @@ export function PosWorkspace({
   const [catalogProducts, setCatalogProducts] = useState<MasterProduct[]>(() => {
     if (typeof window !== "undefined") {
       try {
-        const cached = sessionStorage.getItem("pos_catalog_products_cache");
+        const cached = localStorage.getItem("pos_catalog_products_cache") || sessionStorage.getItem("pos_catalog_products_cache");
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -822,9 +841,13 @@ export function PosWorkspace({
         const res = await fetch("/api/menu-items");
         const data = await res.json();
         if (Array.isArray(data)) {
-          setCatalogProducts(data);
+          setCatalogProducts((prev) => {
+            if (JSON.stringify(prev) === JSON.stringify(data)) return prev;
+            return data;
+          });
           setIsCatalogLoading(false);
           try {
+            localStorage.setItem("pos_catalog_products_cache", JSON.stringify(data));
             sessionStorage.setItem("pos_catalog_products_cache", JSON.stringify(data));
           } catch {}
         }

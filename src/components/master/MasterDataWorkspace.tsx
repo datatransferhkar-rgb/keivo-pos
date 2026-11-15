@@ -10,108 +10,8 @@ import { TableQrModal } from "@/components/modals/TableQrModal";
 import { PrintAllTablesQrModal } from "@/components/modals/PrintAllTablesQrModal";
 import { ProductDetailModal } from "@/components/modals/ProductDetailModal";
 
-const INITIAL_PRODUCTS: MasterProduct[] = [
-  {
-    id: "prod-1",
-    code: "PRD-001",
-    name: "Nasi Liwet Komplit",
-    category: "Makanan Utama",
-    price: 42000,
-    description: "Nasi liwet gurih dengan ayam suwir, orek tempe, tahu bacem & sambal terasi khas.",
-    isAvailable: true,
-    imageUrl: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "prod-2",
-    code: "PRD-002",
-    name: "Gurame Bakar Cobek (800g)",
-    category: "Seafood",
-    price: 85000,
-    description: "Gurame segar dibakar arang dengan rempah cobek manis gurih pedas.",
-    isAvailable: true,
-    imageUrl: "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=300&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "prod-3",
-    code: "PRD-003",
-    name: "Ayam Bakar Taliwang",
-    category: "Makanan Utama",
-    price: 48000,
-    description: "Ayam kampung muda dibakar bumbu taliwang khas Lombok pedas menggigit.",
-    isAvailable: true,
-    imageUrl: "https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?w=300&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "prod-4",
-    code: "PRD-004",
-    name: "Bebek Goreng Kremes",
-    category: "Makanan Utama",
-    price: 45000,
-    description: "Bebek empuk bumbu kuning gurih berlimpah taburan kremes renyah.",
-    isAvailable: true,
-    imageUrl: "https://images.unsplash.com/photo-1514944298352-f41e57c617b0?w=300&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "prod-5",
-    code: "PRD-005",
-    name: "Sup Buntut Sapi",
-    category: "Sup & Sayur",
-    price: 65000,
-    description: "Kuah kaldu bening gurih hangat dengan potongan buntut sapi empuk berempah.",
-    isAvailable: true,
-    imageUrl: "https://images.unsplash.com/photo-1547496502-affa22d38842?w=300&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "prod-6",
-    code: "PRD-006",
-    name: "Cah Kangkung Terasi",
-    category: "Sup & Sayur",
-    price: 22000,
-    description: "Tumisan kangkung hijau segar dengan terasi udang khas Cirebon harum gurih.",
-    isAvailable: true,
-    imageUrl: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=300&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "prod-7",
-    code: "PRD-007",
-    name: "Sate Ayam Madura (10 tsk)",
-    category: "Makanan Utama",
-    price: 35000,
-    description: "Daging ayam fillet panggang lembut disiram saus kacang kental & kecap manis.",
-    isAvailable: true,
-    imageUrl: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=300&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "prod-8",
-    code: "PRD-008",
-    name: "Es Kelapa Muda Batok",
-    category: "Minuman",
-    price: 18000,
-    description: "Air kelapa murni disajikan langsung dalam batok kelapa segar pilihan.",
-    isAvailable: true,
-    imageUrl: "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=300&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "prod-9",
-    code: "PRD-009",
-    name: "Es Cendol Durian",
-    category: "Minuman",
-    price: 25000,
-    description: "Cendol pandan harum dengan santan segar, gula aren organik & topping daging durian.",
-    isAvailable: true,
-    imageUrl: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=300&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "prod-10",
-    code: "PRD-010",
-    name: "Tempe Mendoan (4 pcs)",
-    category: "Camilan",
-    price: 18000,
-    description: "Tempe kedelai berbalut adonan daun bawang digoreng setengah matang gurih renyah.",
-    isAvailable: true,
-    imageUrl: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=300&auto=format&fit=crop&q=80",
-  },
-];
+// Data produk murni bersumber dari database server
+const INITIAL_PRODUCTS: MasterProduct[] = [];
 
 const INITIAL_TABLES: MasterTable[] = [
   { id: "tbl-01", tableNumber: "Meja 01", displayName: "Meja 01", qrToken: "tbl-token-01-xyz", area: "indoor", capacity: 4, status: "tersedia" },
@@ -165,7 +65,18 @@ export function MasterDataWorkspace() {
   const { settings, updateSettings } = useRestaurant();
   const [activeTab, setActiveTab] = useState<"products" | "tables" | "promos" | "customers" | "categories" | "payments">("products");
   const [categorySubTab, setCategorySubTab] = useState<"product" | "area" | "member">("product");
-  const [products, setProducts] = useState<MasterProduct[]>(INITIAL_PRODUCTS);
+  const [products, setProducts] = useState<MasterProduct[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("pos_catalog_products_cache");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
   const [tables, setTables] = useState<MasterTable[]>(INITIAL_TABLES);
   const [promos, setPromos] = useState<PromoDiscount[]>([]);
   const [isLoadingPromos, setIsLoadingPromos] = useState(false);

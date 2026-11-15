@@ -1,7 +1,6 @@
 // Keivo POS Service Worker for Tablet Kiosk & Offline Resilience
-const CACHE_NAME = "keivo-pos-cache-v1";
+const CACHE_NAME = "keivo-pos-cache-v3";
 const ASSETS_TO_CACHE = [
-  "/",
   "/manifest.webmanifest",
   "/icon-192.png",
   "/icon-512.png",
@@ -23,6 +22,7 @@ self.addEventListener("activate", (event) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
+            console.log("[SW] Deleting obsolete cache:", key);
             return caches.delete(key);
           }
         })
@@ -33,15 +33,24 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  // Let API requests go directly to network
+  // Always fetch API routes directly from the server network
   if (event.request.url.includes("/api/")) {
     return;
   }
 
+  // HTML navigation always goes directly to network to prevent stale bundle lock-in
+  if (
+    event.request.mode === "navigate" ||
+    (event.request.headers.get("accept") &&
+      event.request.headers.get("accept").includes("text/html"))
+  ) {
+    return;
+  }
+
+  // Static assets: Network first, fallback to cache if offline
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Cache successful GET responses for static files
         if (
           event.request.method === "GET" &&
           response.status === 200 &&
@@ -57,11 +66,7 @@ self.addEventListener("fetch", (event) => {
       .catch(async () => {
         const cached = await caches.match(event.request);
         if (cached) return cached;
-        if (event.request.mode === "navigate") {
-          return (await caches.match("/")) || Response.error();
-        }
         return Response.error();
       })
   );
 });
-

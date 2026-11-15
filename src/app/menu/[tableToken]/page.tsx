@@ -75,7 +75,7 @@ function CustomerMenuContent() {
   const [menuItems, setMenuItems] = useState<MenuItemClient[]>(() => {
     if (typeof window !== "undefined") {
       try {
-        const cached = sessionStorage.getItem("dine_in_menu_cache");
+        const cached = localStorage.getItem("dine_in_menu_cache") || sessionStorage.getItem("dine_in_menu_cache");
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -202,9 +202,13 @@ function CustomerMenuContent() {
             });
           });
 
-          setMenuItems(items);
+          setMenuItems((prev) => {
+            if (JSON.stringify(prev) === JSON.stringify(items)) return prev;
+            return items;
+          });
           setIsMenuLoading(false);
           try {
+            localStorage.setItem("dine_in_menu_cache", JSON.stringify(items));
             sessionStorage.setItem("dine_in_menu_cache", JSON.stringify(items));
           } catch {}
         }
