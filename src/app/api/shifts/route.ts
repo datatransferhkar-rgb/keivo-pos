@@ -1,31 +1,52 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-// GET /api/shifts - Get active shift data
-export async function GET() {
+// Helper to generate a unique sessionNumber for each shift
+async function generateNextShiftNumber(): Promise<string> {
   try {
-    let session = await db.cashierSession.findFirst({
-      where: { status: "open" },
+    const count = await db.cashierSession.count();
+    const candidate = `SHIFT-${String(count + 1).padStart(3, "0")}`;
+    const exists = await db.cashierSession.findUnique({ where: { sessionNumber: candidate } });
+    if (!exists) return candidate;
+  } catch (e) {
+    // fallback
+  }
+  return `SHIFT-${Date.now().toString().slice(-6)}`;
+}
+
+// Helper to get active open shift or safely create one if none is open
+async function getOrCreateActiveSession(cashierId?: string, cashierName?: string) {
+  let session = await db.cashierSession.findFirst({
+    where: { status: "open" },
+    include: {
+      cashMovements: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!session) {
+    const sessionNumber = await generateNextShiftNumber();
+    session = await db.cashierSession.create({
+      data: {
+        sessionNumber,
+        cashierId: cashierId || "usr-kasir-1",
+        cashierName: cashierName || "Siti Rahmawati",
+        openingCashAmount: 500000,
+        status: "open",
+      },
       include: {
         cashMovements: true,
       },
-      orderBy: { createdAt: "desc" },
     });
+  }
 
-    if (!session) {
-      session = await db.cashierSession.create({
-        data: {
-          sessionNumber: "SHIFT-042",
-          cashierId: "siti",
-          cashierName: "Siti Rahmawati",
-          openingCashAmount: 500000,
-          status: "open",
-        },
-        include: {
-          cashMovements: true,
-        },
-      });
-    }
+  return session;
+}
+
+// GET /api/shifts - Get active shift data
+export async function GET() {
+  try {
+    const session = await getOrCreateActiveSession();
 
     // Calculate total omset from paid orders
     const paidOrders = await db.order.findMany({
@@ -43,20 +64,38 @@ export async function GET() {
       .filter((m: { movementType: string }) => m.movementType === "cash_out")
       .reduce((sum: number, m: { amount: number }) => sum + m.amount, 0);
 
-    return NextResponse.json({
-      sessionId: session.id,
-      sessionNumber: `Shift Pagi #${session.sessionNumber.replace("SHIFT-", "")}`,
-      cashierName: session.cashierName,
-      openedAt: session.startedAt,
-      openingCash: session.openingCashAmount,
-      totalOmset: totalOmset > 0 ? totalOmset : 0,
-      cashOutTotal,
-      cashMovements: sortedMovements,
-      drawerEstimate: session.openingCashAmount - cashOutTotal,
-    });
+    const shiftDisplayNumber = session.sessionNumber.replace("SHIFT-", "").trim();
+
+    return NextResponse.json(
+      {
+        sessionId: session.id,
+        sessionNumber: `Shift #${shiftDisplayNumber}`,
+        cashierName: session.cashierName,
+        openedAt: session.startedAt,
+        openingCash: session.openingCashAmount,
+        totalOmset: totalOmset > 0 ? totalOmset : 0,
+        cashOutTotal,
+        cashMovements: sortedMovements,
+        drawerEstimate: session.openingCashAmount - cashOutTotal,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+          Pragma: "no-cache",
+        },
+      }
+    );
   } catch (error) {
     console.error("Error fetching shift:", error);
-    return NextResponse.json({ error: "Failed to fetch shift" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch shift" },
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+        },
+      }
+    );
   }
 }
 
@@ -66,17 +105,34 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { action, physicalCashAmount, discrepancyNotes, movementType, amount, reason } = body;
 
-    const activeSession = await db.cashierSession.findFirst({
-      where: { status: "open" },
-      include: { cashMovements: true },
-      orderBy: { createdAt: "desc" },
-    });
+    if (action === "cash_movement") {
+      const activeSession = await getOrCreateActiveSession(
+        body.cashierId,
+        body.createdBy || body.cashierName
+      );
 
-    if (!activeSession) {
-      return NextResponse.json({ error: "Tidak ada shift aktif yang ditemukan." }, { status: 400 });
-    }
+      const movement = await db.cashMovement.create({
+        data: {
+          cashierSessionId: activeSession.id,
+          movementType: movementType || "cash_out",
+          amount: Number(amount) || 0,
+          reason: reason || "Kas Keluar Operasional",
+          createdBy: body.createdBy || activeSession.cashierName,
+        },
+      });
 
-    if (action === "close_shift") {
+      return NextResponse.json(movement, { status: 201 });
+    } else if (action === "close_shift") {
+      let activeSession = await db.cashierSession.findFirst({
+        where: { status: "open" },
+        include: { cashMovements: true },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (!activeSession) {
+        activeSession = await getOrCreateActiveSession();
+      }
+
       const closingPhysical = Number(physicalCashAmount) || 0;
       const cashOutTotal = (activeSession.cashMovements || [])
         .filter((m: { movementType: string }) => m.movementType === "cash_out")
@@ -102,18 +158,6 @@ export async function POST(request: Request) {
         closed,
         discrepancy,
       });
-    } else if (action === "cash_movement") {
-      const movement = await db.cashMovement.create({
-        data: {
-          cashierSessionId: activeSession.id,
-          movementType: movementType || "cash_out",
-          amount: Number(amount) || 0,
-          reason: reason || "Kas Keluar Operasional",
-          createdBy: body.createdBy || activeSession.cashierName,
-        },
-      });
-
-      return NextResponse.json(movement, { status: 201 });
     } else if (action === "delete_cash_movement") {
       if (!body.id) {
         return NextResponse.json({ error: "ID pengeluaran kas wajib disertakan" }, { status: 400 });

@@ -599,6 +599,8 @@ export function PosWorkspace({
           movementType: "cash_out",
           amount,
           reason,
+          cashierId: currentUser.id,
+          cashierName: currentUser.name,
           createdBy: currentUser.name,
         }),
       });
